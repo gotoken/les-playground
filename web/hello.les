@@ -1,0 +1,17 @@
+# Les をブラウザで実行するデモです。Ctrl+Enter（または「実行」）で実行します。
+def Greet(name: String) -> String:
+    "こんにちは、" + name + " さん"
+
+print "名前を入力してください: "
+name = gets()
+match name:
+    case String:
+        print Greet(name), "\n"
+    case Nil:
+        print "\n（入力がありませんでした）\n"
+
+# 遅延評価: 使われない引数は評価されません
+def First(a: Int, b: Int) -> Int:
+    a
+
+print "First(42, 1 / 0) = ", First(42, 1 / 0), "\n"

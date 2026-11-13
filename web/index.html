@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Les Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/xterm.css">
+<style>
+:root {
+  /* layout: title row and toolbar, then editor | terminal side by side (stacked on phones); stdin bar sits under the terminal */
+  --bg: #eef0f5;
+  --panel: #ffffff;
+  --ink: #1a1f2e;
+  --muted: #5b6377;
+  --line: #d6dae4;
+  --accent: #2c52c4;
+  --accent-ink: #ffffff;
+  --term-bg: #141822;
+  --ok: #1d8049;
+  --warn: #a86400;
+  --bad: #c0352b;
+  --font-ui: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1117; --panel: #161a23; --ink: #e2e6ef; --muted: #959db0; --line: #282e3d;
+    --accent: #8ba4ff; --accent-ink: #0e1117; --term-bg: #0b0d13;
+    --ok: #4cc38a; --warn: #e3a83e; --bad: #ff6f62;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1117; --panel: #161a23; --ink: #e2e6ef; --muted: #959db0; --line: #282e3d;
+  --accent: #8ba4ff; --accent-ink: #0e1117; --term-bg: #0b0d13;
+  --ok: #4cc38a; --warn: #e3a83e; --bad: #ff6f62;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+
+.app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  height: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+h1 { margin: 0; font-size: 1.3rem; font-weight: 600; letter-spacing: 0.01em; text-wrap: balance; }
+.meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.meta a { color: inherit; }
+.chip {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 0.8rem; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  white-space: nowrap;
+}
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip[data-state="running"] { color: var(--accent); border-color: var(--accent); }
+.chip[data-state="waiting"] { color: var(--warn); border-color: var(--warn); }
+.chip[data-state="done"] { color: var(--ok); border-color: var(--ok); }
+.chip[data-state="failed"] { color: var(--bad); border-color: var(--bad); }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.toolbar .spacer { flex: 1; }
+select, button, input[type="text"] { font: inherit; color: var(--ink); }
+select, input[type="text"] {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px;
+}
+select { max-width: 100%; }
+button {
+  min-height: 36px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel);
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button:disabled { opacity: 0.45; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+
+.work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
+.panel {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 7px 12px; border-bottom: 1px solid var(--line);
+  font-size: 0.78rem; color: var(--muted);
+}
+.panel-head .name { font-family: var(--font-mono); color: var(--ink); font-weight: 500; }
+
+#code {
+  flex: 1; min-height: 0; width: 100%; resize: none; border: 0; outline: none;
+  padding: 12px 14px; background: var(--panel); color: var(--ink);
+  font: 14px/1.6 var(--font-mono); tab-size: 4; white-space: pre; overflow: auto;
+}
+.term-wrap { flex: 1; min-height: 0; background: var(--term-bg); padding: 8px 4px 6px 10px; }
+#term { width: 100%; height: 100%; }
+
+.stdin { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+.stdin input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 14px; }
+
+footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+footer a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.95em; }
+
+@media (max-width: 860px) {
+  .app { height: auto; min-height: 100%; grid-template-rows: auto auto auto auto; }
+  .work { grid-template-columns: minmax(0, 1fr); }
+  #code { flex: none; height: 36vh; min-height: 220px; }
+  .term-wrap { flex: none; height: 44vh; min-height: 260px; }
+  .chip { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Les Playground</h1>
+    <span class="meta">__META__</span>
+    <span id="status" class="chip" data-state="loading" role="status" aria-live="polite">les.wasm を読み込み中…</span>
+  </header>
+
+  <div class="toolbar">
+    <label for="example" class="check">サンプル</label>
+    <select id="example"></select>
+    <button id="run" class="primary" type="button" disabled>実行</button>
+    <button id="stop" type="button" disabled>停止</button>
+    <button id="clear" type="button">端末をクリア</button>
+    <span class="spacer"></span>
+    <label class="check" for="warnings"><input id="warnings" type="checkbox" checked> 型警告を表示</label>
+  </div>
+
+  <main class="work">
+    <section class="panel" aria-label="エディタ">
+      <div class="panel-head"><span class="name">/main.les</span><span>Ctrl+Enter で実行 · Tab で 4 スペース</span></div>
+      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Les のソースコード"></textarea>
+    </section>
+    <section class="panel" aria-label="端末">
+      <div class="panel-head"><span class="name">端末</span><span>Ctrl+C 停止 · Ctrl+D EOF</span></div>
+      <div class="term-wrap"><div id="term"></div></div>
+      <form class="stdin" id="stdin-form" autocomplete="off">
+        <input id="stdin-input" type="text" placeholder="実行中のプログラムへの入力（Enter で送信）" aria-label="標準入力" disabled>
+        <button id="stdin-send" type="submit" disabled>送信</button>
+        <button id="stdin-eof" type="button" disabled title="標準入力を閉じる（Ctrl+D）">EOF</button>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    <span>仮想ファイル（読み取り専用）: <code>/main.les</code>（エディタの内容）と <code>/mymath.les</code> などリポジトリの examples</span>
+    <span>cmd/les を無改造のまま GOOS=js GOARCH=wasm でビルド（__GO__）</span>
+    <span>ライセンス: <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
+    __REPO_LINK__
+  </footer>
+</div>
+
+<script src="vendor/xterm.js"></script>
+<script src="vendor/addon-fit.js"></script>
+<script>
+"use strict";
+// Filled in by scripts/build.mjs: les version info, the example menu and the read-only files for the virtual fs.
+const BUILD = /*__BUILD__*/{ les_sha: "dev", menu: [["hello", "はじめに（対話入力）"]], examples: {}, files: {} };
+const EXAMPLES = BUILD.examples;
+const DRAFT_KEY = "les-demo:draft:v1";
+
+const $ = (id) => document.getElementById(id);
+const editor = $("code"), statusEl = $("status"), exampleSel = $("example");
+const runBtn = $("run"), stopBtn = $("stop"), clearBtn = $("clear"), warnBox = $("warnings");
+const stdinForm = $("stdin-form"), stdinInput = $("stdin-input"), stdinSend = $("stdin-send"), stdinEof = $("stdin-eof");
+const enc = new TextEncoder();
+
+function setStatus(state, text) {
+  statusEl.dataset.state = state;
+  statusEl.textContent = text;
+}
+
+/* ---------- terminal ---------- */
+const css = getComputedStyle(document.documentElement);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const term = new Terminal({
+  convertEol: true,
+  cursorBlink: !reduceMotion,
+  fontFamily: css.getPropertyValue("--font-mono").trim(),
+  fontSize: 13.5,
+  lineHeight: 1.2,
+  scrollback: 5000,
+  theme: {
+    background: css.getPropertyValue("--term-bg").trim(),
+    foreground: "#dde2ec", cursor: "#9db2ff", cursorAccent: "#141822",
+    selectionBackground: "#33415f",
+    black: "#1c2130", brightBlack: "#6c7488",
+    red: "#ff6f62", green: "#5fd08f", yellow: "#e3a83e", blue: "#8ba4ff",
+  },
+});
+const fitAddon = new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+
+let atLineStart = true;
+let outQueue = [], outScheduled = false;
+function out(text, sgr) {
+  if (!text) return;
+  atLineStart = /\n$/.test(text);
+  outQueue.push(sgr ? `\x1b[${sgr}m${text}\x1b[0m` : text);
+  if (!outScheduled) { outScheduled = true; requestAnimationFrame(flushOut); }
+}
+function flushOut() { outScheduled = false; const s = outQueue.join(""); outQueue = []; term.write(s); }
+function notice(text) { out((atLineStart ? "" : "\n") + text + "\n", "90"); }
+
+/* ---------- wasm + worker ---------- */
+let wasmModule = null, wasmBytes = null;
+let worker = null, decoders = null, startedAt = 0, userStarted = false;
+let lineBuf = "", prevCR = false;
+
+async function loadWasm() {
+  const res = await fetch(`les.wasm?v=${BUILD.les_sha}`);
+  if (!res.ok) throw new Error(`les.wasm を取得できませんでした（HTTP ${res.status}）`);
+  const chunks = [];
+  let got = 0;
+  if (res.body && res.body.getReader) {
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      got += value.length;
+      setStatus("loading", `les.wasm を読み込み中… ${(got / 1048576).toFixed(1)} MB`);
+    }
+  } else {
+    chunks.push(new Uint8Array(await res.arrayBuffer()));
+  }
+  const bytes = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let off = 0;
+  for (const c of chunks) { bytes.set(c, off); off += c.length; }
+  setStatus("loading", "コンパイル中…");
+  wasmBytes = bytes.buffer;
+  wasmModule = await WebAssembly.compile(wasmBytes);
+}
+
+function filesForRun() {
+  const files = { ...BUILD.files };
+  files["/main.les"] = editor.value;
+  return files;
+}
+
+function setRunning(on) {
+  runBtn.disabled = !wasmModule;
+  stopBtn.disabled = !on;
+  stdinInput.disabled = stdinSend.disabled = stdinEof.disabled = !on;
+}
+
+function run(byUser) {
+  if (!wasmModule) return;
+  if (worker) kill();
+  saveDraft();
+  userStarted = byUser;
+  lineBuf = ""; prevCR = false;
+  decoders = { 1: new TextDecoder(), 2: new TextDecoder() };
+  if (!atLineStart) out("\n");
+  out("$ les main.les\n", "90");
+
+  const w = new Worker(`worker.js?v=${BUILD.les_sha}`);
+  worker = w;
+  w.onmessage = (ev) => { if (w === worker) onWorkerMessage(ev.data); };
+  w.onerror = (ev) => {
+    if (w !== worker) return;
+    ev.preventDefault();
+    out(`ワーカーでエラーが発生しました: ${ev.message || "不明なエラー"}\n`, "31");
+    finish(null);
+  };
+  const argv = ["les", "/main.les"];
+  const files = filesForRun();
+  try {
+    w.postMessage({ type: "run", module: wasmModule, files, argv });
+  } catch (e) {
+    w.postMessage({ type: "run", bytes: wasmBytes.slice(0), files, argv });
+  }
+  startedAt = performance.now();
+  setStatus("running", "実行中");
+  setRunning(true);
+}
+
+function onWorkerMessage(m) {
+  switch (m.type) {
+    case "out": {
+      const text = decoders[m.fd].decode(m.data, { stream: true });
+      if (m.fd === 1) out(text);
+      else if (/^Type Warning:/.test(text)) { if (warnBox.checked) out(text, "33"); }
+      else out(text, "31");
+      break;
+    }
+    case "stdin-wait":
+      setStatus("waiting", "入力待ち");
+      if (userStarted && matchMedia("(pointer: fine)").matches) term.focus();
+      break;
+    case "stdin-resume":
+      setStatus("running", "実行中");
+      break;
+    case "exit":
+      finish(m.code);
+      break;
+    case "error":
+      out(`${m.message}\n`, "31");
+      finish(null);
+      break;
+  }
+}
+
+function kill() {
+  if (worker) { worker.terminate(); worker = null; }
+  setRunning(false);
+}
+
+function finish(code) {
+  const ms = Math.round(performance.now() - startedAt);
+  kill();
+  if (code === null) {
+    notice(`[異常終了 · ${ms} ms]`);
+    setStatus("failed", "異常終了");
+  } else {
+    notice(`[終了コード ${code} · ${ms} ms]`);
+    setStatus(code === 0 ? "done" : "failed", `終了 (${code}) · ${ms} ms`);
+  }
+}
+
+function stop() {
+  if (!worker) return;
+  kill();
+  out("^C\n");
+  notice("[停止しました]");
+  setStatus("ready", "停止しました");
+}
+
+function sendText(s) { if (worker && s) worker.postMessage({ type: "stdin", data: enc.encode(s) }); }
+function sendEOF() { if (worker) worker.postMessage({ type: "eof" }); }
+
+/* ---------- terminal line discipline (local echo, like a cooked tty) ---------- */
+const WIDE = /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+const cellWidth = (ch) => (WIDE.test(ch) ? 2 : 1);
+function eraseChars(chars) {
+  for (const ch of chars) {
+    const w = cellWidth(ch);
+    out("\b".repeat(w) + " ".repeat(w) + "\b".repeat(w));
+  }
+}
+
+term.onData((data) => {
+  if (!worker || data.startsWith("\x1b")) return;
+  for (const ch of data) {
+    if (ch === "\n" && prevCR) { prevCR = false; continue; }
+    prevCR = ch === "\r";
+    if (ch === "\r" || ch === "\n") {
+      out("\n");
+      sendText(lineBuf + "\n");
+      lineBuf = "";
+    } else if (ch === "\x7f" || ch === "\b") {
+      const chars = Array.from(lineBuf);
+      if (chars.length) { eraseChars([chars.pop()]); lineBuf = chars.join(""); }
+    } else if (ch === "\x15") {
+      eraseChars(Array.from(lineBuf).reverse());
+      lineBuf = "";
+    } else if (ch === "\x04") {
+      if (lineBuf) { sendText(lineBuf); lineBuf = ""; } else sendEOF();
+    } else if (ch === "\x03") {
+      stop();
+      return;
+    } else if (ch >= " ") {
+      lineBuf += ch;
+      out(ch);
+    }
+  }
+});
+
+stdinForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!worker) return;
+  const v = stdinInput.value;
+  stdinInput.value = "";
+  out(v + "\n");
+  sendText(lineBuf + v + "\n");
+  lineBuf = "";
+});
+stdinEof.addEventListener("click", () => {
+  if (!worker) return;
+  if (lineBuf) { sendText(lineBuf); lineBuf = ""; }
+  sendEOF();
+});
+
+/* ---------- editor ---------- */
+let tabEscapes = false;
+function insertText(text) {
+  if (!document.execCommand("insertText", false, text)) editor.setRangeText(text, editor.selectionStart, editor.selectionEnd, "end");
+}
+editor.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(true); return; }
+  if (e.key === "Escape") { tabEscapes = true; return; }
+  if (e.key === "Tab" && !tabEscapes && !e.shiftKey) { e.preventDefault(); insertText("    "); return; }
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    const before = editor.value.slice(0, editor.selectionStart);
+    const line = before.slice(before.lastIndexOf("\n") + 1);
+    let indent = line.match(/^[ \t]*/)[0];
+    if (/:\s*$/.test(line)) indent += "    ";
+    e.preventDefault();
+    insertText("\n" + indent);
+  }
+  tabEscapes = false;
+});
+editor.addEventListener("input", () => saveDraft());
+
+function saveDraft() {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ example: exampleSel.value, code: editor.value })); } catch (e) {}
+}
+function loadDraft() {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; }
+}
+
+for (const [name, label] of BUILD.menu) {
+  if (!(name in EXAMPLES)) continue;
+  const o = document.createElement("option");
+  o.value = name; o.textContent = label;
+  exampleSel.append(o);
+}
+exampleSel.addEventListener("change", () => {
+  editor.value = EXAMPLES[exampleSel.value] || "";
+  saveDraft();
+  if (wasmModule) run(true);
+});
+runBtn.addEventListener("click", () => run(true));
+stopBtn.addEventListener("click", stop);
+clearBtn.addEventListener("click", () => { term.clear(); term.write("\x1b[2K\r"); atLineStart = true; lineBuf = ""; });
+
+/* ---------- start ---------- */
+const draft = loadDraft();
+if (draft && typeof draft.code === "string" && draft.code.trim()) {
+  editor.value = draft.code;
+  if (draft.example in EXAMPLES) exampleSel.value = draft.example;
+} else {
+  exampleSel.value = "hello";
+  editor.value = EXAMPLES.hello;
+}
+
+(async () => {
+  const wasmReady = loadWasm();
+  try {
+    await Promise.race([
+      document.fonts ? document.fonts.load('13.5px "IBM Plex Mono"') : null,
+      new Promise((r) => setTimeout(r, 1500)),
+    ]);
+  } catch (e) {}
+  term.open($("term"));
+  fitAddon.fit();
+  new ResizeObserver(() => { try { fitAddon.fit(); } catch (e) {} }).observe($("term"));
+  try {
+    await wasmReady;
+  } catch (e) {
+    setStatus("failed", "読み込みに失敗しました");
+    out(`${e.message || e}\nページを再読み込みしてください。\n`, "31");
+    return;
+  }
+  setStatus("ready", "準備完了");
+  setRunning(false);
+  run(false);
+})();
+</script>
+</body>
+</html>

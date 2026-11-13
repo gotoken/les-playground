@@ -1,0 +1,14 @@
+{
+  "name": "les-playground",
+  "private": true,
+  "description": "Run unak/les in the browser (GOOS=js GOARCH=wasm + xterm.js), built and deployed to GitHub Pages",
+  "type": "module",
+  "scripts": {
+    "build": "scripts/build.sh",
+    "smoke": "node --liftoff-only scripts/smoke.mjs --site dist --les les"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0"
+  }
+}

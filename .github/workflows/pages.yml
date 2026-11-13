@@ -1,0 +1,108 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Hourly. The check job skips the build when the deployed site already has
+    # the current unak/les master and the current commit of this repository.
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      les_ref:
+        description: 'unak/les のブランチ・タグ・コミット'
+        required: false
+        default: master
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      les_ref: ${{ steps.decide.outputs.les_ref }}
+    steps:
+      - name: Look up the Pages URL
+        id: pages
+        uses: actions/configure-pages@v6
+        continue-on-error: true
+
+      - name: Decide whether to build
+        id: decide
+        env:
+          LES_REF: ${{ inputs.les_ref || 'master' }}
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          set -euo pipefail
+          sha=$(git ls-remote https://github.com/unak/les.git "refs/heads/${LES_REF}" | cut -f1)
+          # Not a branch name: hand the tag or commit to actions/checkout as is.
+          ref=${sha:-$LES_REF}
+          build=true
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ -n "$BASE_URL" ]; then
+            deployed=$(curl -fsSL "${BASE_URL%/}/version.json?t=$(date +%s)" || echo '{}')
+            if [ "$(jq -r '.les_sha // ""' <<<"$deployed")" = "$sha" ] &&
+               [ "$(jq -r '.playground_sha // ""' <<<"$deployed")" = "$GITHUB_SHA" ]; then
+              build=false
+              echo "Already deployed: unak/les ${sha:0:7}, ${GITHUB_REPOSITORY} ${GITHUB_SHA:0:7}"
+            fi
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "les_ref=${ref}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out unak/les
+        uses: actions/checkout@v7
+        with:
+          repository: unak/les
+          ref: ${{ needs.check.outputs.les_ref }}
+          path: les
+          fetch-depth: 0  # the version is the commit count, as in unak/les releases
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false  # unak/les has no dependencies
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build site
+        run: scripts/build.sh les dist
+        env:
+          PLAYGROUND_REPO: ${{ github.repository }}
+
+      - name: Smoke test
+        run: node --liftoff-only scripts/smoke.mjs --site dist --les les
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
