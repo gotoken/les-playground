@@ -15,7 +15,7 @@ import { collect, root } from "./examples.mjs";
 const { values: arg } = parseArgs({ options: { site: { type: "string" }, les: { type: "string" } } });
 const site = path.resolve(arg.site || "dist");
 const mod = await WebAssembly.compile(await readFile(path.join(site, "les.wasm")));
-const { files, runnable, examples } = await collect(arg.les || "les");
+const { files, runnable, hello } = await collect(arg.les || "les");
 const shim = path.join(root, "scripts", "node-worker-shim.cjs");
 const enc = new TextEncoder();
 
@@ -45,8 +45,12 @@ const checks = [
     const r = await run("", { argv: ["les", "-v"] });
     return r.code === 0 && /^les \S+ \(js\/wasm\)\n$/.test(r.stdout) ? null : r;
   }],
-  ["hello.les reads a line from stdin", async () => {
-    const r = await run(examples.hello, { input: ["テスト\n"] });
+  ["hello.en.les reads a line from stdin", async () => {
+    const r = await run(hello.en, { input: ["Test\n"] });
+    return r.code === 0 && r.stdout.includes("Hello, Test!") ? null : r;
+  }],
+  ["hello.ja.les reads a line from stdin", async () => {
+    const r = await run(hello.ja, { input: ["テスト\n"] });
     return r.code === 0 && r.stdout.includes("こんにちは、テスト さん") ? null : r;
   }],
   ["stdin lines then EOF", async () => {

@@ -34,8 +34,8 @@ async function lesLicense() {
   return m[1].replace(/^```\w*\n?/gm, "").trim() + "\n";
 }
 
-const { menu, examples, files } = await collect(arg.les);
-const build = { les_sha: arg.sha, les_version: arg.version, go: arg.go, menu, examples, files };
+const { menu, examples, hello, files } = await collect(arg.les);
+const build = { les_sha: arg.sha, les_version: arg.version, go: arg.go, menu, examples, hello, files };
 const short = arg.sha.slice(0, 7);
 const meta =
   `<a href="https://github.com/unak/les/commit/${esc(arg.sha)}">unak/les @ ${esc(short)}</a>` +
@@ -54,7 +54,6 @@ const buildRe = /\/\*__BUILD__\*\/\{[^\n]*\};/;
 if (!buildRe.test(html)) throw new Error("BUILD placeholder not found in web/index.html");
 html = html.replace(buildRe, () => JSON.stringify(build).replace(/</g, "\\u003c") + ";");
 fill("__META__", meta);
-fill("__GO__", esc(arg.go));
 fill("__REPO_LINK__", repoLink);
 
 await mkdir(path.join(out, "vendor"), { recursive: true });

@@ -1,4 +1,4 @@
-# Les をブラウザで実行するデモです。Ctrl+Enter（または「実行」）で実行します。
+# Les をブラウザで実行します。Ctrl+Enter（または「実行」）で実行できます。
 def Greet(name: String) -> String:
     "こんにちは、" + name + " さん"
 

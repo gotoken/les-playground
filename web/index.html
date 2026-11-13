@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -89,6 +89,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button:disabled { opacity: 0.45; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+.lang {
+  display: inline-flex; align-items: center; gap: 2px; padding-left: 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted);
+}
+.lang:hover { border-color: var(--accent); }
+.lang:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lang .globe { width: 16px; height: 16px; flex: none; }
+.lang select { border: 0; background: transparent; min-height: 30px; padding: 2px 6px 2px 4px; font-size: 0.85rem; }
+.lang select:focus-visible { outline: none; }
 
 .work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
 .panel {
@@ -131,61 +140,186 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
   <header>
     <h1>Les Playground</h1>
     <span class="meta">__META__</span>
-    <span id="status" class="chip" data-state="loading" role="status" aria-live="polite">les.wasm を読み込み中…</span>
+    <span id="status" class="chip" data-state="loading" role="status" aria-live="polite">Loading les.wasm…</span>
+    <label class="lang" for="lang" title="Language / 言語">
+      <svg class="globe" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M3 12h18M4.6 7.5h14.8M4.6 16.5h14.8"/>
+        <path d="M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3z"/>
+      </svg>
+      <select id="lang" aria-label="Language / 言語">
+        <option value="en" lang="en">English</option>
+        <option value="ja" lang="ja">日本語</option>
+      </select>
+    </label>
   </header>
 
   <div class="toolbar">
-    <label for="example" class="check">サンプル</label>
+    <label for="example" class="check" data-i18n="example">Example</label>
     <select id="example"></select>
-    <button id="run" class="primary" type="button" disabled>実行</button>
-    <button id="stop" type="button" disabled>停止</button>
-    <button id="clear" type="button">端末をクリア</button>
+    <button id="run" class="primary" type="button" disabled data-i18n="run">Run</button>
+    <button id="stop" type="button" disabled data-i18n="stop">Stop</button>
+    <button id="clear" type="button" data-i18n="clear">Clear terminal</button>
     <span class="spacer"></span>
-    <label class="check" for="warnings"><input id="warnings" type="checkbox" checked> 型警告を表示</label>
+    <label class="check" for="warnings"><input id="warnings" type="checkbox" checked> <span data-i18n="warnings">Show type warnings</span></label>
   </div>
 
   <main class="work">
-    <section class="panel" aria-label="エディタ">
-      <div class="panel-head"><span class="name">/main.les</span><span>Ctrl+Enter で実行 · Tab で 4 スペース</span></div>
-      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Les のソースコード"></textarea>
+    <section class="panel" aria-label="Editor" data-i18n-aria-label="editor">
+      <div class="panel-head"><span class="name">/main.les</span><span data-i18n="editorHint">Ctrl+Enter runs · Tab inserts 4 spaces</span></div>
+      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Les source code" data-i18n-aria-label="code"></textarea>
     </section>
-    <section class="panel" aria-label="端末">
-      <div class="panel-head"><span class="name">端末</span><span>Ctrl+C 停止 · Ctrl+D EOF</span></div>
+    <section class="panel" aria-label="Terminal" data-i18n-aria-label="terminal">
+      <div class="panel-head"><span class="name" data-i18n="terminal">Terminal</span><span data-i18n="terminalHint">Ctrl+C stops · Ctrl+D sends EOF</span></div>
       <div class="term-wrap"><div id="term"></div></div>
       <form class="stdin" id="stdin-form" autocomplete="off">
-        <input id="stdin-input" type="text" placeholder="実行中のプログラムへの入力（Enter で送信）" aria-label="標準入力" disabled>
-        <button id="stdin-send" type="submit" disabled>送信</button>
-        <button id="stdin-eof" type="button" disabled title="標準入力を閉じる（Ctrl+D）">EOF</button>
+        <input id="stdin-input" type="text" placeholder="Input for the running program (Enter sends)" data-i18n-placeholder="stdinPlaceholder" aria-label="Standard input" data-i18n-aria-label="stdin" disabled>
+        <button id="stdin-send" type="submit" disabled data-i18n="send">Send</button>
+        <button id="stdin-eof" type="button" disabled title="Close standard input (Ctrl+D)" data-i18n-title="eofTitle">EOF</button>
       </form>
     </section>
   </main>
 
   <footer>
-    <span>仮想ファイル（読み取り専用）: <code>/main.les</code>（エディタの内容）と <code>/mymath.les</code> などリポジトリの examples</span>
-    <span>cmd/les を無改造のまま GOOS=js GOARCH=wasm でビルド（__GO__）</span>
-    <span>ライセンス: <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
+    <span data-i18n-html="footerFiles">Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code></span>
+    <span data-i18n="footerBuild">cmd/les built unmodified for GOOS=js GOARCH=wasm</span>
+    <span><span data-i18n="licenses">Licenses:</span> <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
     __REPO_LINK__
   </footer>
 </div>
 
+<script>
+"use strict";
+// Filled in by scripts/build.mjs: les version info, the example menu, the starter sample in each
+// UI language and the read-only files for the virtual fs. Keep this on one line.
+const BUILD = /*__BUILD__*/{ les_sha: "dev", go: "", menu: [["hello", { en: "Getting started (interactive input)", ja: "はじめに（対話入力）" }]], examples: {}, hello: { en: "", ja: "" }, files: {} };
+
+/* ---------- UI language: saved choice, else the browser's languages, else English ---------- */
+const STRINGS = {
+  en: {
+    statusLoading: "Loading les.wasm…",
+    statusLoadingMB: "Loading les.wasm… {mb} MB",
+    statusCompiling: "Compiling…",
+    statusReady: "Ready",
+    statusRunning: "Running",
+    statusWaiting: "Waiting for input",
+    statusExited: "Exited ({code}) · {ms} ms",
+    statusCrashed: "Crashed",
+    statusStopped: "Stopped",
+    statusLoadFailed: "Failed to load",
+    example: "Example",
+    run: "Run",
+    stop: "Stop",
+    clear: "Clear terminal",
+    warnings: "Show type warnings",
+    editor: "Editor",
+    editorHint: "Ctrl+Enter runs · Tab inserts 4 spaces",
+    code: "Les source code",
+    terminal: "Terminal",
+    terminalHint: "Ctrl+C stops · Ctrl+D sends EOF",
+    stdin: "Standard input",
+    stdinPlaceholder: "Input for the running program (Enter sends)",
+    send: "Send",
+    eofTitle: "Close standard input (Ctrl+D)",
+    footerFiles: "Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code>",
+    footerBuild: "cmd/les built unmodified for GOOS=js GOARCH=wasm ({go})",
+    licenses: "Licenses:",
+    noticeExit: "[exit code {code} · {ms} ms]",
+    noticeCrash: "[crashed · {ms} ms]",
+    noticeStopped: "[stopped]",
+    workerError: "Worker error: {msg}",
+    unknownError: "unknown error",
+    loadError: "Could not fetch les.wasm (HTTP {status})",
+    reloadHint: "Reload the page to try again.",
+  },
+  ja: {
+    statusLoading: "les.wasm を読み込み中…",
+    statusLoadingMB: "les.wasm を読み込み中… {mb} MB",
+    statusCompiling: "コンパイル中…",
+    statusReady: "準備完了",
+    statusRunning: "実行中",
+    statusWaiting: "入力待ち",
+    statusExited: "終了 ({code}) · {ms} ms",
+    statusCrashed: "異常終了",
+    statusStopped: "停止しました",
+    statusLoadFailed: "読み込みに失敗しました",
+    example: "サンプル",
+    run: "実行",
+    stop: "停止",
+    clear: "端末をクリア",
+    warnings: "型警告を表示",
+    editor: "エディタ",
+    editorHint: "Ctrl+Enter で実行 · Tab で 4 スペース",
+    code: "Les のソースコード",
+    terminal: "端末",
+    terminalHint: "Ctrl+C で停止 · Ctrl+D で EOF",
+    stdin: "標準入力",
+    stdinPlaceholder: "実行中のプログラムへの入力（Enter で送信）",
+    send: "送信",
+    eofTitle: "標準入力を閉じる（Ctrl+D）",
+    footerFiles: "仮想ファイル（読み取り専用）: <code>/main.les</code>（エディタの内容）と <code>/mymath.les</code> などリポジトリの examples",
+    footerBuild: "cmd/les を無改造のまま GOOS=js GOARCH=wasm でビルド（{go}）",
+    licenses: "ライセンス:",
+    noticeExit: "[終了コード {code} · {ms} ms]",
+    noticeCrash: "[異常終了 · {ms} ms]",
+    noticeStopped: "[停止しました]",
+    workerError: "ワーカーでエラーが発生しました: {msg}",
+    unknownError: "不明なエラー",
+    loadError: "les.wasm を取得できませんでした（HTTP {status}）",
+    reloadHint: "ページを再読み込みしてください。",
+  },
+};
+const LANG_KEY = "les-playground:lang";
+const I18N_PARAMS = { go: BUILD.go || "Go" };
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved && saved in STRINGS) return saved;
+  } catch (e) {}
+  for (const l of navigator.languages || [navigator.language || ""]) {
+    const base = String(l).toLowerCase().split("-")[0];
+    if (base in STRINGS) return base;
+  }
+  return "en";
+}
+let lang = detectLang();
+
+function t(key, params) {
+  const s = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+  return params ? s.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)) : s;
+}
+function applyI18n() {
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n, I18N_PARAMS);
+  for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML = t(el.dataset.i18nHtml, I18N_PARAMS);
+  for (const el of document.querySelectorAll("[data-i18n-placeholder]")) el.placeholder = t(el.dataset.i18nPlaceholder);
+  for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+  document.getElementById("lang").value = lang;
+}
+applyI18n();
+</script>
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
 <script>
 "use strict";
-// Filled in by scripts/build.mjs: les version info, the example menu and the read-only files for the virtual fs.
-const BUILD = /*__BUILD__*/{ les_sha: "dev", menu: [["hello", "はじめに（対話入力）"]], examples: {}, files: {} };
-const EXAMPLES = BUILD.examples;
 const DRAFT_KEY = "les-demo:draft:v1";
 
 const $ = (id) => document.getElementById(id);
-const editor = $("code"), statusEl = $("status"), exampleSel = $("example");
+const editor = $("code"), statusEl = $("status"), exampleSel = $("example"), langSel = $("lang");
 const runBtn = $("run"), stopBtn = $("stop"), clearBtn = $("clear"), warnBox = $("warnings");
 const stdinForm = $("stdin-form"), stdinInput = $("stdin-input"), stdinSend = $("stdin-send"), stdinEof = $("stdin-eof");
 const enc = new TextEncoder();
 
-function setStatus(state, text) {
-  statusEl.dataset.state = state;
-  statusEl.textContent = text;
+let status = { state: "loading", key: "statusLoading", params: null };
+function setStatus(state, key, params) {
+  status = { state, key, params: params || null };
+  renderStatus();
+}
+function renderStatus() {
+  statusEl.dataset.state = status.state;
+  statusEl.textContent = t(status.key, status.params);
 }
 
 /* ---------- terminal ---------- */
@@ -227,7 +361,7 @@ let lineBuf = "", prevCR = false;
 
 async function loadWasm() {
   const res = await fetch(`les.wasm?v=${BUILD.les_sha}`);
-  if (!res.ok) throw new Error(`les.wasm を取得できませんでした（HTTP ${res.status}）`);
+  if (!res.ok) throw new Error(t("loadError", { status: res.status }));
   const chunks = [];
   let got = 0;
   if (res.body && res.body.getReader) {
@@ -237,7 +371,7 @@ async function loadWasm() {
       if (done) break;
       chunks.push(value);
       got += value.length;
-      setStatus("loading", `les.wasm を読み込み中… ${(got / 1048576).toFixed(1)} MB`);
+      setStatus("loading", "statusLoadingMB", { mb: (got / 1048576).toFixed(1) });
     }
   } else {
     chunks.push(new Uint8Array(await res.arrayBuffer()));
@@ -245,7 +379,7 @@ async function loadWasm() {
   const bytes = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
   let off = 0;
   for (const c of chunks) { bytes.set(c, off); off += c.length; }
-  setStatus("loading", "コンパイル中…");
+  setStatus("loading", "statusCompiling");
   wasmBytes = bytes.buffer;
   wasmModule = await WebAssembly.compile(wasmBytes);
 }
@@ -278,7 +412,7 @@ function run(byUser) {
   w.onerror = (ev) => {
     if (w !== worker) return;
     ev.preventDefault();
-    out(`ワーカーでエラーが発生しました: ${ev.message || "不明なエラー"}\n`, "31");
+    out(t("workerError", { msg: ev.message || t("unknownError") }) + "\n", "31");
     finish(null);
   };
   const argv = ["les", "/main.les"];
@@ -289,7 +423,7 @@ function run(byUser) {
     w.postMessage({ type: "run", bytes: wasmBytes.slice(0), files, argv });
   }
   startedAt = performance.now();
-  setStatus("running", "実行中");
+  setStatus("running", "statusRunning");
   setRunning(true);
 }
 
@@ -303,11 +437,11 @@ function onWorkerMessage(m) {
       break;
     }
     case "stdin-wait":
-      setStatus("waiting", "入力待ち");
+      setStatus("waiting", "statusWaiting");
       if (userStarted && matchMedia("(pointer: fine)").matches) term.focus();
       break;
     case "stdin-resume":
-      setStatus("running", "実行中");
+      setStatus("running", "statusRunning");
       break;
     case "exit":
       finish(m.code);
@@ -328,11 +462,11 @@ function finish(code) {
   const ms = Math.round(performance.now() - startedAt);
   kill();
   if (code === null) {
-    notice(`[異常終了 · ${ms} ms]`);
-    setStatus("failed", "異常終了");
+    notice(t("noticeCrash", { ms }));
+    setStatus("failed", "statusCrashed");
   } else {
-    notice(`[終了コード ${code} · ${ms} ms]`);
-    setStatus(code === 0 ? "done" : "failed", `終了 (${code}) · ${ms} ms`);
+    notice(t("noticeExit", { code, ms }));
+    setStatus(code === 0 ? "done" : "failed", "statusExited", { code, ms });
   }
 }
 
@@ -340,8 +474,8 @@ function stop() {
   if (!worker) return;
   kill();
   out("^C\n");
-  notice("[停止しました]");
-  setStatus("ready", "停止しました");
+  notice(t("noticeStopped"));
+  setStatus("ready", "statusStopped");
 }
 
 function sendText(s) { if (worker && s) worker.postMessage({ type: "stdin", data: enc.encode(s) }); }
@@ -427,29 +561,59 @@ function loadDraft() {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; }
 }
 
-for (const [name, label] of BUILD.menu) {
-  if (!(name in EXAMPLES)) continue;
-  const o = document.createElement("option");
-  o.value = name; o.textContent = label;
-  exampleSel.append(o);
+/* ---------- examples ---------- */
+const hasExample = (name) => name === "hello" || name in BUILD.examples;
+function exampleText(name) {
+  if (name === "hello") return BUILD.hello[lang] || BUILD.hello.en || "";
+  return BUILD.examples[name] || "";
 }
+// The starter sample untouched in any language, so a language switch can swap it.
+const isPristineHello = (code) => Object.values(BUILD.hello).includes(code);
+
+function renderMenu() {
+  const selected = exampleSel.value;
+  exampleSel.textContent = "";
+  for (const [name, label] of BUILD.menu) {
+    if (!hasExample(name)) continue;
+    const o = document.createElement("option");
+    o.value = name;
+    o.textContent = typeof label === "string" ? label : (label[lang] || label.en || name);
+    exampleSel.append(o);
+  }
+  if (selected && hasExample(selected)) exampleSel.value = selected;
+}
+
 exampleSel.addEventListener("change", () => {
-  editor.value = EXAMPLES[exampleSel.value] || "";
+  editor.value = exampleText(exampleSel.value);
   saveDraft();
   if (wasmModule) run(true);
+});
+langSel.addEventListener("change", () => {
+  lang = langSel.value in STRINGS ? langSel.value : "en";
+  try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+  applyI18n();
+  renderMenu();
+  renderStatus();
+  if (isPristineHello(editor.value) && editor.value !== exampleText("hello")) {
+    editor.value = exampleText("hello");
+    saveDraft();
+    if (worker) run(true);  // the old-language prompt is still live in the terminal
+  }
 });
 runBtn.addEventListener("click", () => run(true));
 stopBtn.addEventListener("click", stop);
 clearBtn.addEventListener("click", () => { term.clear(); term.write("\x1b[2K\r"); atLineStart = true; lineBuf = ""; });
 
 /* ---------- start ---------- */
+renderMenu();
+renderStatus();
 const draft = loadDraft();
-if (draft && typeof draft.code === "string" && draft.code.trim()) {
+if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristineHello(draft.code)) {
   editor.value = draft.code;
-  if (draft.example in EXAMPLES) exampleSel.value = draft.example;
+  if (hasExample(draft.example)) exampleSel.value = draft.example;
 } else {
   exampleSel.value = "hello";
-  editor.value = EXAMPLES.hello;
+  editor.value = exampleText("hello");
 }
 
 (async () => {
@@ -466,11 +630,11 @@ if (draft && typeof draft.code === "string" && draft.code.trim()) {
   try {
     await wasmReady;
   } catch (e) {
-    setStatus("failed", "読み込みに失敗しました");
-    out(`${e.message || e}\nページを再読み込みしてください。\n`, "31");
+    setStatus("failed", "statusLoadFailed");
+    out(`${e.message || e}\n${t("reloadHint")}\n`, "31");
     return;
   }
-  setStatus("ready", "準備完了");
+  setStatus("ready", "statusReady");
   setRunning(false);
   run(false);
 })();

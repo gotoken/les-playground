@@ -1,0 +1,17 @@
+# Les running in your browser. Press Ctrl+Enter (or "Run") to run it.
+def Greet(name: String) -> String:
+    "Hello, " + name + "!"
+
+print "What is your name? "
+name = gets()
+match name:
+    case String:
+        print Greet(name), "\n"
+    case Nil:
+        print "\n(no input)\n"
+
+# Lazy evaluation: an argument that is never used is never evaluated
+def First(a: Int, b: Int) -> Int:
+    a
+
+print "First(42, 1 / 0) = ", First(42, 1 / 0), "\n"

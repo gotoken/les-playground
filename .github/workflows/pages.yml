@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       les_ref:
-        description: 'unak/les のブランチ・タグ・コミット'
+        description: 'unak/les branch, tag or commit to build'
         required: false
         default: master
 
