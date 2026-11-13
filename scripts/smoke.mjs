@@ -10,7 +10,7 @@ import { Worker } from "node:worker_threads";
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import path from "node:path";
-import { collect, root } from "./examples.mjs";
+import { collect, root, OWN } from "./examples.mjs";
 
 const { values: arg } = parseArgs({ options: { site: { type: "string" }, les: { type: "string" } } });
 const site = path.resolve(arg.site || "dist");
@@ -78,6 +78,17 @@ const checks = [
     return r.code === 1 && /Syntax Error/.test(r.stderr) ? null : r;
   }],
 ];
+
+// Examples with one file per UI language must behave the same in every language.
+for (const ex of OWN.filter((e) => e.files)) {
+  checks.push([`${ex.name}: every language version exits 0 with the same output`, async () => {
+    const results = [];
+    for (const [lang, code] of Object.entries(examples[ex.name])) results.push([lang, await run(code)]);
+    const [, first] = results[0];
+    const bad = results.filter(([, r]) => r.code !== 0 || r.error || r.stdout !== first.stdout || !r.stdout);
+    return bad.length ? Object.fromEntries(results) : null;
+  }]);
+}
 
 let failed = 0;
 for (const [name, check] of checks) {

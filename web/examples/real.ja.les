@@ -1,0 +1,99 @@
+# 構成的実数（constructive reals）
+# 実数 x を「精度 p を受け取ると x·2^p を誤差 ±1 以内の Int で返す関数」で表す。
+# 必要な精度は表示する側が決め、その要求が式の木を伝って下りていく。
+
+def bitlen(n: Int) -> Int:
+    n == 0 ? 0 : n.String(2).Len()
+
+def pow10(n: Int) -> Int:
+    r = 1
+    i = 0
+    for i < n:
+        r = r * 10
+        i = i + 1
+    r
+
+# floor(sqrt(n))：Newton 法
+def isqrt(n: Int) -> Int:
+    if n < 2:
+        return n
+    x = 1 << ((bitlen(n) + 1) / 2)
+    for:
+        y = (x + n / x) >> 1
+        if y >= x:
+            break
+        x = y
+    x
+
+# atan(1/m)·2^q（項ごとの切り捨て誤差は呼び出し側のガードビットで吸収）
+def atan_inv(m: Int, q: Int) -> Int:
+    m2 = m * m
+    term = (1 << q) / m
+    acc = 0
+    k = 1
+    sign = 1
+    for term != 0:
+        acc = acc + sign * (term / k)
+        term = term / m2
+        k = k + 2
+        sign = -sign
+    acc
+
+struct Real:
+    approx: (Int) -> Int
+
+    def +(o: Real) -> Real:
+        a = @approx
+        b = o.approx
+        Real(approx: |p: Int|: (a(p + 2) + b(p + 2) + 2) >> 2)
+
+    def -(o: Real) -> Real:
+        a = @approx
+        b = o.approx
+        Real(approx: |p: Int|: (a(p + 2) - b(p + 2) + 2) >> 2)
+
+    def *(o: Real) -> Real:
+        a = @approx
+        b = o.approx
+        # まず精度 0 で大きさだけ見積もり、その分だけ精度を上乗せして要求する
+        ba = bitlen(a(0).Abs() + 1) + 1
+        bb = bitlen(b(0).Abs() + 1) + 1
+        Real(approx: |p: Int|: (a(p + bb + 3) * b(p + ba + 3) + (1 << (p + ba + bb + 5))) >> (p + ba + bb + 6))
+
+    # 小数点以下 n 桁の 10 進表記（最終桁は丸め）
+    def Digits(n: Int) -> String:
+        p = 4 * n + 8
+        d = pow10(n)
+        v = (@approx(p) * d + (1 << (p - 1))) >> p
+        f = (v % d).String()
+        for f.Len() < n:
+            f = "0" + f
+        (v / d).String() + "." + f
+
+    def Inspect() -> String:
+        @Digits(50) + "..."
+
+def real(n: Int) -> Real:
+    Real(approx: |p: Int|: n << p)
+
+def sqrt(x: Real) -> Real:
+    a = x.approx
+    f = |p: Int|:
+        v = a(2 * p + 4)
+        (isqrt(v < 0 ? 0 : v) + 2) >> 2
+    Real(approx: f)
+
+# Machin の公式 π = 16·atan(1/5) − 4·atan(1/239)
+pi_approx = |p: Int|:
+    g = bitlen(p) + 6
+    q = p + g
+    (16 * atan_inv(5, q) - 4 * atan_inv(239, q) + (1 << (g - 1))) >> g
+Pi = Real(approx: pi_approx)
+
+# --- デモ ---
+r2 = sqrt(real(2))
+print "sqrt(2)         = ", r2, "\n"
+print "pi              = ", Pi, "\n"
+print "sqrt(2)*sqrt(2) = ", r2 * r2, "\n"
+print "pi + sqrt(2)    = ", Pi + r2, "\n"
+print "sqrt(pi)        = ", sqrt(Pi), "\n"
