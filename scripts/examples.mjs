@@ -3,13 +3,14 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 export const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+export const LANGS = ["en", "ja"];
 
 // Short descriptions for examples we know; anything new in unak/les/examples is listed by file name.
 const LABELS = {
-  mvp_demo: "遅延評価",
-  lambda_demo: "ラムダ",
-  echo: "EOF まで stdin を読む",
-  main_import: "import mymath",
+  mvp_demo: { en: "lazy evaluation", ja: "遅延評価" },
+  lambda_demo: { en: "lambdas", ja: "ラムダ" },
+  echo: { en: "read stdin until EOF", ja: "EOF まで stdin を読む" },
+  main_import: { en: "import mymath", ja: "import mymath" },
 };
 const ORDER = Object.keys(LABELS);
 
@@ -22,9 +23,8 @@ export async function collect(lesDir) {
   const runnable = [];
   for (const f of (await readdir(exDir)).filter((f) => f.endsWith(".les")).sort()) {
     const text = await readFile(path.join(exDir, f), "utf8");
-    const name = f.slice(0, -4);
     files[`/${f}`] = text;
-    if (!isModule(text)) runnable.push(name);
+    if (!isModule(text)) runnable.push(f.slice(0, -4));
   }
   runnable.sort((a, b) => {
     const ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
@@ -32,12 +32,18 @@ export async function collect(lesDir) {
     return a.localeCompare(b);
   });
 
-  const hello = await readFile(path.join(root, "web", "hello.les"), "utf8");
-  const menu = [["hello", "はじめに（対話入力）"]];
-  const examples = { hello };
+  // The starter sample is ours and comes in each UI language: web/hello.<lang>.les
+  const hello = {};
+  for (const lang of LANGS) hello[lang] = await readFile(path.join(root, "web", `hello.${lang}.les`), "utf8");
+
+  // menu: [name, { en: label, ja: label }]
+  const menu = [["hello", { en: "Getting started (interactive input)", ja: "はじめに（対話入力）" }]];
+  const examples = {};
   for (const name of runnable) {
-    menu.push([name, LABELS[name] ? `${name}.les — ${LABELS[name]}` : `${name}.les`]);
+    const label = {};
+    for (const lang of LANGS) label[lang] = LABELS[name] ? `${name}.les — ${LABELS[name][lang]}` : `${name}.les`;
+    menu.push([name, label]);
     examples[name] = files[`/${name}.les`];
   }
-  return { menu, examples, files, runnable };
+  return { menu, examples, hello, files, runnable };
 }
