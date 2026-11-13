@@ -60,11 +60,12 @@ h1 { margin: 0; font-size: 1.3rem; font-weight: 600; letter-spacing: 0.01em; tex
 .meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
 .meta a { color: inherit; }
 /* Run status, shown in the terminal's title bar right after its name */
-.status {
-  display: inline-flex; align-items: center; gap: 6px;
-  color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+.status { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* An inline dot keeps the status's baseline on its text, so it lines up with the "Terminal" label */
+.status::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  border-radius: 50%; background: currentColor; vertical-align: baseline;
 }
-.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .status[data-state="running"] { color: var(--accent); }
 .status[data-state="waiting"] { color: var(--warn); }
 .status[data-state="done"] { color: var(--ok); }
@@ -103,12 +104,13 @@ label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
 }
 .panel-head {
-  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px;
   padding: 7px 12px; border-bottom: 1px solid var(--line);
   font-size: 0.78rem; color: var(--muted);
 }
 .panel-head .name { font-family: var(--font-mono); color: var(--ink); font-weight: 500; }
-.panel-head .title { display: inline-flex; align-items: center; gap: 2em; min-width: 0; }
+.panel-head .title { display: inline-flex; align-items: baseline; gap: 2em; min-width: 0; }
+.panel-head .title .name { font-family: var(--font-ui); }  /* a label, not a file name like /main.les */
 
 #code {
   flex: 1; min-height: 0; width: 100%; resize: none; border: 0; outline: none;
