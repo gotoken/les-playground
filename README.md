@@ -45,7 +45,7 @@ mode. `web/examples/2048.les` runs as `les main.les {seed} --raw` in key input m
 | Manual (workflow_dispatch) | Builds the branch, tag or commit given as `les_ref` and publishes it |
 
 After the build, `scripts/smoke.mjs` runs the real `worker.js` and `les.wasm` under Node.
-If the playground's own checks fail (stdin, EOF, import, exit codes, the starter samples, 2048.les), nothing is published.
+If the playground's own checks fail (stdin, EOF, import, exit codes, the starter samples, the examples kept here), nothing is published.
 If one of unak/les's examples fails, the run only reports a warning and still publishes.
 
 One-time setup: set Settings → Pages → Build and deployment → Source to **GitHub Actions**.
@@ -68,7 +68,10 @@ python3 -m http.server -d dist 8000   # http://localhost:8000/
 - `web/index.html` — the page (UI strings for both languages live here)
 - `web/worker.js` — runs one les program per Web Worker; in-memory fs and stdin
 - `web/hello.en.les`, `web/hello.ja.les` — the starter sample in each UI language
-- `web/examples/` — examples kept in this repository (2048.les), registered in `scripts/examples.mjs`
+- `web/examples/` — examples kept in this repository, registered in `scripts/examples.mjs`:
+  `2048.les`, and `real` and `spigot` with one file per UI language (`*.en.les` / `*.ja.les`,
+  which differ only in their comments; the page shows the one for the current UI language and
+  swaps it on a language switch as long as it has not been edited)
 - `scripts/build.sh`, `scripts/build.mjs` — build les.wasm and assemble the site in `dist/`
 - `scripts/smoke.mjs` — smoke test run in CI before deploying
 

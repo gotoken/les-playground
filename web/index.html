@@ -686,12 +686,18 @@ function loadDraft() {
 
 /* ---------- examples ---------- */
 const hasExample = (name) => name === "hello" || name in BUILD.examples;
+// An example is one text, or one text per UI language ({ en, ja }) such as translated comments.
+const exampleSource = (name) => (name === "hello" ? BUILD.hello : BUILD.examples[name]);
 function exampleText(name) {
-  if (name === "hello") return BUILD.hello[lang] || BUILD.hello.en || "";
-  return BUILD.examples[name] || "";
+  const v = exampleSource(name);
+  if (v == null) return "";
+  return typeof v === "string" ? v : (v[lang] || v.en || "");
 }
-// The starter sample untouched in any language, so a language switch can swap it.
-const isPristineHello = (code) => Object.values(BUILD.hello).includes(code);
+// Is `code` this example, untouched, in one of its languages? Then a language switch may swap it.
+function isPristine(name, code) {
+  const v = exampleSource(name);
+  return !!v && typeof v === "object" && Object.values(v).includes(code);
+}
 
 function renderMenu() {
   const selected = exampleSel.value;
@@ -718,10 +724,11 @@ langSel.addEventListener("change", () => {
   applyI18n();
   renderMenu();
   renderStatus();
-  if (isPristineHello(editor.value) && editor.value !== exampleText("hello")) {
-    editor.value = exampleText("hello");
+  const name = exampleSel.value;
+  if (isPristine(name, editor.value) && editor.value !== exampleText(name)) {
+    editor.value = exampleText(name);
     saveDraft();
-    if (worker) run(true);  // the old-language prompt is still live in the terminal
+    if (worker) run(true);  // e.g. the starter sample's old-language prompt is still waiting
   }
 });
 runBtn.addEventListener("click", () => run(true));
@@ -732,12 +739,12 @@ clearBtn.addEventListener("click", () => { term.clear(); term.write("\x1b[2K\r")
 renderMenu();
 renderStatus();
 const draft = loadDraft();
-if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristineHello(draft.code)) {
-  editor.value = draft.code;
-  if (hasExample(draft.example)) exampleSel.value = draft.example;
+const draftExample = draft && hasExample(draft.example) ? draft.example : "hello";
+exampleSel.value = draftExample;
+if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristine(draftExample, draft.code)) {
+  editor.value = draft.code;               // the user's own edits
 } else {
-  exampleSel.value = "hello";
-  editor.value = exampleText("hello");
+  editor.value = exampleText(draftExample);  // an untouched example, in the current language
 }
 setKeyMode(exampleRun(exampleSel.value).keys);
 

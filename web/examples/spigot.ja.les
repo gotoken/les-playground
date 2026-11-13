@@ -1,0 +1,12 @@
+# Gibbons の unbounded spigot：π の 10 進桁を (桁, 残り) の無限ストリームとして生成
+def pi_digits(q: Int, r: Int, t: Int, k: Int, n: Int, l: Int):
+    if 4*q + r - t < n*t:
+        (n, pi_digits(10*q, 10*(r - n*t), t, k, (10*(3*q + r)) / t - 10*n, l))
+    else:
+        pi_digits(q*k, (2*q + r)*l, t*l, k + 1, (q*(7*k + 2) + r*l) / (t*l), l + 2)
+
+def show(n: Int, s):
+    n <= 0 ? "" : s[0].String() + show(n - 1, s[1])
+
+pi = pi_digits(1, 0, 1, 1, 3, 3)
+print show(60, pi), "\n"

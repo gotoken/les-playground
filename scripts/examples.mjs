@@ -15,8 +15,10 @@ const LABELS = {
 const ORDER = Object.keys(LABELS);
 
 // Examples kept in this repository (web/examples/), with how the playground runs them.
-//   args: extra command-line arguments; "{seed}" becomes a fresh number on every run
-//   keys: start in key input mode (every key press is sent as its own line, arrows as w/a/s/d)
+//   file:  one file for every UI language, or
+//   files: one file per UI language ({ en, ja }), e.g. the same program with translated comments
+//   run.args: extra command-line arguments; "{seed}" becomes a fresh number on every run
+//   run.keys: start in key input mode (every key press is sent as its own line, arrows as w/a/s/d)
 export const OWN = [
   {
     name: "2048",
@@ -24,7 +26,19 @@ export const OWN = [
     label: { en: "2048.les — play with the arrow keys", ja: "2048.les — 矢印キーで遊ぶ" },
     run: { args: ["{seed}", "--raw"], keys: true },
   },
+  {
+    name: "real",
+    files: { en: "real.en.les", ja: "real.ja.les" },
+    label: { en: "real.les — constructive real numbers", ja: "real.les — 構成的実数" },
+  },
+  {
+    name: "spigot",
+    files: { en: "spigot.en.les", ja: "spigot.ja.les" },
+    label: { en: "spigot.les — digits of π as an infinite stream", ja: "spigot.les — π の桁を無限ストリームで" },
+  },
 ];
+
+const readExample = (file) => readFile(path.join(root, "web", "examples", file), "utf8");
 
 // A file that declares `module <name>` is a library for `import`, not a program to run.
 const isModule = (text) => /^module\s+\w+/m.test(text);
@@ -49,11 +63,17 @@ export async function collect(lesDir) {
   for (const lang of LANGS) hello[lang] = await readFile(path.join(root, "web", `hello.${lang}.les`), "utf8");
 
   // menu: [name, { en: label, ja: label }, run options?]
+  // examples: name -> text, or name -> { en: text, ja: text } for per-language files
   const menu = [["hello", { en: "Getting started (interactive input)", ja: "はじめに（対話入力）" }]];
   const examples = {};
   for (const ex of OWN) {
-    examples[ex.name] = await readFile(path.join(root, "web", "examples", ex.file), "utf8");
-    menu.push([ex.name, ex.label, ex.run]);
+    if (ex.files) {
+      examples[ex.name] = {};
+      for (const lang of LANGS) examples[ex.name][lang] = await readExample(ex.files[lang]);
+    } else {
+      examples[ex.name] = await readExample(ex.file);
+    }
+    menu.push(ex.run ? [ex.name, ex.label, ex.run] : [ex.name, ex.label]);
   }
   for (const name of runnable) {
     if (name in examples) continue;  // ours wins if unak/les ever ships one with the same name
