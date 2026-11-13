@@ -15,7 +15,7 @@ import { collect, root } from "./examples.mjs";
 const { values: arg } = parseArgs({ options: { site: { type: "string" }, les: { type: "string" } } });
 const site = path.resolve(arg.site || "dist");
 const mod = await WebAssembly.compile(await readFile(path.join(site, "les.wasm")));
-const { files, runnable, hello } = await collect(arg.les || "les");
+const { files, runnable, hello, examples } = await collect(arg.les || "les");
 const shim = path.join(root, "scripts", "node-worker-shim.cjs");
 const enc = new TextEncoder();
 
@@ -61,6 +61,13 @@ const checks = [
   ["import from the virtual fs", async () => {
     const r = await run("import m\nprint m::X, \"\\n\"\n", { extraFiles: { "/m.les": "module m\n\nX = 42\n" } });
     return r.code === 0 && r.stdout === "42\n" ? null : r;
+  }],
+  ["2048.les plays one key per line with --raw", async () => {
+    const r = await run(examples["2048"], {
+      argv: ["les", "/main.les", "smoke-seed", "--raw"],
+      input: ["w\n", "a\n", "s\n", "d\n", "u\n", "n\n", "q\n"],
+    });
+    return r.code === 0 && r.stdout.includes("Final score:") && r.stderr === "" ? null : r;
   }],
   ["exit code is passed through", async () => {
     const r = await run("print \"x\\n\"\nexit 3\n");
