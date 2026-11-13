@@ -14,6 +14,18 @@ const LABELS = {
 };
 const ORDER = Object.keys(LABELS);
 
+// Examples kept in this repository (web/examples/), with how the playground runs them.
+//   args: extra command-line arguments; "{seed}" becomes a fresh number on every run
+//   keys: start in key input mode (every key press is sent as its own line, arrows as w/a/s/d)
+export const OWN = [
+  {
+    name: "2048",
+    file: "2048.les",
+    label: { en: "2048.les — play with the arrow keys", ja: "2048.les — 矢印キーで遊ぶ" },
+    run: { args: ["{seed}", "--raw"], keys: true },
+  },
+];
+
 // A file that declares `module <name>` is a library for `import`, not a program to run.
 const isModule = (text) => /^module\s+\w+/m.test(text);
 
@@ -36,10 +48,15 @@ export async function collect(lesDir) {
   const hello = {};
   for (const lang of LANGS) hello[lang] = await readFile(path.join(root, "web", `hello.${lang}.les`), "utf8");
 
-  // menu: [name, { en: label, ja: label }]
+  // menu: [name, { en: label, ja: label }, run options?]
   const menu = [["hello", { en: "Getting started (interactive input)", ja: "はじめに（対話入力）" }]];
   const examples = {};
+  for (const ex of OWN) {
+    examples[ex.name] = await readFile(path.join(root, "web", "examples", ex.file), "utf8");
+    menu.push([ex.name, ex.label, ex.run]);
+  }
   for (const name of runnable) {
+    if (name in examples) continue;  // ours wins if unak/les ever ships one with the same name
     const label = {};
     for (const lang of LANGS) label[lang] = LABELS[name] ? `${name}.les — ${LABELS[name][lang]}` : `${name}.les`;
     menu.push([name, label]);

@@ -122,6 +122,11 @@ label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.
 
 .stdin { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .stdin input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 14px; }
+/* Key input mode: the text field gives way to an arrow pad (phones have no arrow keys) */
+.stdin .keypad { display: none; flex: 1; justify-content: center; gap: 6px; }
+.stdin .keypad button { min-width: 48px; font-size: 1.05rem; }
+.stdin.keys .keypad { display: flex; }
+.stdin.keys #stdin-input, .stdin.keys #stdin-send { display: none; }
 
 footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
 footer a { color: var(--accent); }
@@ -132,6 +137,8 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
   .work { grid-template-columns: minmax(0, 1fr); }
   #code { flex: none; height: 36vh; min-height: 220px; }
   .term-wrap { flex: none; height: 44vh; min-height: 260px; }
+  /* Key input mode is for full-screen programs such as 2048: give the terminal more of the screen */
+  body.key-mode .term-wrap { height: 62vh; }
   /* Title and language menu on one row, build info below */
   header .lang { order: 2; }
   header .meta { order: 3; flex-basis: 100%; }
@@ -167,6 +174,7 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
     <button id="stop" type="button" disabled data-i18n="stop">Stop</button>
     <button id="clear" type="button" data-i18n="clear">Clear terminal</button>
     <span class="spacer"></span>
+    <label class="check" for="keymode" title="Send each key press as its own line, without Enter. Arrow keys become w/a/s/d." data-i18n-title="keyModeTitle"><input id="keymode" type="checkbox"> <span data-i18n="keyMode">Key input</span></label>
     <label class="check" for="warnings"><input id="warnings" type="checkbox" checked> <span data-i18n="warnings">Show type warnings</span></label>
   </div>
 
@@ -181,6 +189,12 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
       <form class="stdin" id="stdin-form" autocomplete="off">
         <input id="stdin-input" type="text" placeholder="Input for the running program (Enter sends)" data-i18n-placeholder="stdinPlaceholder" aria-label="Standard input" data-i18n-aria-label="stdin" disabled>
         <button id="stdin-send" type="submit" disabled data-i18n="send">Send</button>
+        <span class="keypad" id="keypad">
+          <button type="button" data-key="a" disabled aria-label="Left (a)" data-i18n-aria-label="keyLeft">←</button>
+          <button type="button" data-key="w" disabled aria-label="Up (w)" data-i18n-aria-label="keyUp">↑</button>
+          <button type="button" data-key="s" disabled aria-label="Down (s)" data-i18n-aria-label="keyDown">↓</button>
+          <button type="button" data-key="d" disabled aria-label="Right (d)" data-i18n-aria-label="keyRight">→</button>
+        </span>
         <button id="stdin-eof" type="button" disabled title="Close standard input (Ctrl+D)" data-i18n-title="eofTitle">EOF</button>
       </form>
     </section>
@@ -227,6 +241,12 @@ const STRINGS = {
     stdinPlaceholder: "Input for the running program (Enter sends)",
     send: "Send",
     eofTitle: "Close standard input (Ctrl+D)",
+    keyMode: "Key input",
+    keyModeTitle: "Send each key press as its own line, without Enter. Arrow keys become w/a/s/d.",
+    keyLeft: "Left (a)",
+    keyUp: "Up (w)",
+    keyDown: "Down (s)",
+    keyRight: "Right (d)",
     footerFiles: "Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code>",
     footerBuild: "cmd/les built unmodified for GOOS=js GOARCH=wasm ({go})",
     licenses: "Licenses:",
@@ -263,6 +283,12 @@ const STRINGS = {
     stdinPlaceholder: "実行中のプログラムへの入力（Enter で送信）",
     send: "送信",
     eofTitle: "標準入力を閉じる（Ctrl+D）",
+    keyMode: "キー入力",
+    keyModeTitle: "Enter を待たず、キーを押すたびに 1 行として送ります。矢印キーは w/a/s/d になります。",
+    keyLeft: "左 (a)",
+    keyUp: "上 (w)",
+    keyDown: "下 (s)",
+    keyRight: "右 (d)",
     footerFiles: "仮想ファイル（読み取り専用）: <code>/main.les</code>（エディタの内容）と <code>/mymath.les</code> などリポジトリの examples",
     footerBuild: "cmd/les を無改造のまま GOOS=js GOARCH=wasm でビルド（{go}）",
     licenses: "ライセンス:",
@@ -314,7 +340,8 @@ const DRAFT_KEY = "les-demo:draft:v1";
 
 const $ = (id) => document.getElementById(id);
 const editor = $("code"), statusEl = $("status"), exampleSel = $("example"), langSel = $("lang");
-const runBtn = $("run"), stopBtn = $("stop"), clearBtn = $("clear"), warnBox = $("warnings");
+const runBtn = $("run"), stopBtn = $("stop"), clearBtn = $("clear"), warnBox = $("warnings"), keyBox = $("keymode");
+const keypad = $("keypad"), keypadButtons = [...keypad.querySelectorAll("button")];
 const stdinForm = $("stdin-form"), stdinInput = $("stdin-input"), stdinSend = $("stdin-send"), stdinEof = $("stdin-eof");
 const enc = new TextEncoder();
 
@@ -329,13 +356,16 @@ function renderStatus() {
 }
 
 /* ---------- terminal ---------- */
+const BASE_FONT = 13.5;
+// 2048.les draws about 55 columns by 22 rows; in key input mode the font shrinks until that fits.
+const KEY_MODE_COLS = 58, KEY_MODE_ROWS = 23;
 const css = getComputedStyle(document.documentElement);
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const term = new Terminal({
   convertEol: true,
   cursorBlink: !reduceMotion,
   fontFamily: css.getPropertyValue("--font-mono").trim(),
-  fontSize: 13.5,
+  fontSize: BASE_FONT,
   lineHeight: 1.2,
   scrollback: 5000,
   theme: {
@@ -359,11 +389,61 @@ function out(text, sgr) {
 }
 function flushOut() { outScheduled = false; const s = outQueue.join(""); outQueue = []; term.write(s); }
 function notice(text) { out((atLineStart ? "" : "\n") + text + "\n", "90"); }
+// Terminal control sequences that should not count as output for line tracking.
+function ctl(seq) { outQueue.push(seq); if (!outScheduled) { outScheduled = true; requestAnimationFrame(flushOut); } }
+
+// xterm measures the character cell again only on the next frame after a font change,
+// so wait a frame before asking how many columns fit.
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+let fitToken = 0;
+async function fitTerminal() {
+  const token = ++fitToken;
+  try {
+    if (term.options.fontSize !== BASE_FONT) {
+      term.options.fontSize = BASE_FONT;
+      await nextFrame();
+      if (token !== fitToken) return;
+    }
+    const dims = fitAddon.proposeDimensions();
+    let size = BASE_FONT;
+    if (keyMode && dims) {
+      const scale = Math.min(1, dims.cols / KEY_MODE_COLS, dims.rows / KEY_MODE_ROWS);
+      if (scale < 1) size = Math.max(8, Math.floor(BASE_FONT * scale * 2) / 2);
+    }
+    if (size !== term.options.fontSize) {
+      term.options.fontSize = size;
+      await nextFrame();
+      if (token !== fitToken) return;
+    }
+    fitAddon.fit();
+  } catch (e) {}
+}
 
 /* ---------- wasm + worker ---------- */
 let wasmModule = null, wasmBytes = null;
 let worker = null, decoders = null, startedAt = 0, userStarted = false;
 let lineBuf = "", prevCR = false;
+
+/* Key input mode does what a shell front end with `stty -icanon -echo` would: every key press
+   goes to the program at once as a line of its own, arrow keys become w/a/s/d, nothing is echoed. */
+let keyMode = false;
+function setKeyMode(on) {
+  keyMode = !!on;
+  keyBox.checked = keyMode;
+  stdinForm.classList.toggle("keys", keyMode);
+  document.body.classList.toggle("key-mode", keyMode);
+  lineBuf = "";
+  if (worker) ctl(keyMode ? "\x1b[?25l" : "\x1b[?25h");
+  fitTerminal();
+}
+function exampleRun(name) {
+  const entry = BUILD.menu.find((m) => m[0] === name);
+  return (entry && entry[2]) || {};
+}
+// Extra arguments for the selected example; "{seed}" becomes a fresh number, like `date +%s`.
+function runArgs() {
+  return (exampleRun(exampleSel.value).args || []).map((a) => (a === "{seed}" ? String(Date.now()) : a));
+}
 
 async function loadWasm() {
   const res = await fetch(`les.wasm?v=${BUILD.les_sha}`);
@@ -400,6 +480,7 @@ function setRunning(on) {
   runBtn.disabled = !wasmModule;
   stopBtn.disabled = !on;
   stdinInput.disabled = stdinSend.disabled = stdinEof.disabled = !on;
+  for (const b of keypadButtons) b.disabled = !on;
 }
 
 function run(byUser) {
@@ -409,8 +490,10 @@ function run(byUser) {
   userStarted = byUser;
   lineBuf = ""; prevCR = false;
   decoders = { 1: new TextDecoder(), 2: new TextDecoder() };
+  const args = runArgs();
   if (!atLineStart) out("\n");
-  out("$ les main.les\n", "90");
+  out(["$ les main.les", ...args].join(" ") + "\n", "90");
+  if (keyMode) ctl("\x1b[?25l");
 
   const w = new Worker(`worker.js?v=${BUILD.les_sha}`);
   worker = w;
@@ -421,7 +504,7 @@ function run(byUser) {
     out(t("workerError", { msg: ev.message || t("unknownError") }) + "\n", "31");
     finish(null);
   };
-  const argv = ["les", "/main.les"];
+  const argv = ["les", "/main.les", ...args];
   const files = filesForRun();
   try {
     w.postMessage({ type: "run", module: wasmModule, files, argv });
@@ -461,6 +544,7 @@ function onWorkerMessage(m) {
 
 function kill() {
   if (worker) { worker.terminate(); worker = null; }
+  ctl("\x1b[?25h");
   setRunning(false);
 }
 
@@ -497,8 +581,32 @@ function eraseChars(chars) {
   }
 }
 
+const ARROW_KEYS = { A: "w", B: "s", C: "d", D: "a" };
+function keyInput(data) {
+  for (let i = 0; i < data.length; i++) {
+    const ch = data[i];
+    if (ch === "\x1b") {
+      // ESC [ A (normal) or ESC O A (application mode); modifiers such as ESC [ 1 ; 5 A are skipped
+      const m = /^\x1b[\[O][0-9;]*([A-Za-z~])/.exec(data.slice(i));
+      if (m) {
+        if (ARROW_KEYS[m[1]]) sendText(ARROW_KEYS[m[1]] + "\n");
+        i += m[0].length - 1;
+      }
+    } else if (ch === "\x04") {
+      sendEOF();
+    } else if (ch === "\x03") {
+      stop();
+      return;
+    } else if (/[A-Za-z0-9]/.test(ch)) {
+      sendText(ch + "\n");
+    }
+  }
+}
+
 term.onData((data) => {
-  if (!worker || data.startsWith("\x1b")) return;
+  if (!worker) return;
+  if (keyMode) { keyInput(data); return; }
+  if (data.startsWith("\x1b")) return;
   for (const ch of data) {
     if (ch === "\n" && prevCR) { prevCR = false; continue; }
     prevCR = ch === "\r";
@@ -532,6 +640,15 @@ stdinForm.addEventListener("submit", (e) => {
   out(v + "\n");
   sendText(lineBuf + v + "\n");
   lineBuf = "";
+});
+keypad.addEventListener("mousedown", (e) => e.preventDefault());  // keep keyboard focus in the terminal
+keypad.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-key]");
+  if (b && worker) sendText(b.dataset.key + "\n");
+});
+keyBox.addEventListener("change", () => {
+  setKeyMode(keyBox.checked);
+  if (worker && keyMode && matchMedia("(pointer: fine)").matches) term.focus();
 });
 stdinEof.addEventListener("click", () => {
   if (!worker) return;
@@ -591,6 +708,7 @@ function renderMenu() {
 
 exampleSel.addEventListener("change", () => {
   editor.value = exampleText(exampleSel.value);
+  setKeyMode(exampleRun(exampleSel.value).keys);
   saveDraft();
   if (wasmModule) run(true);
 });
@@ -621,6 +739,7 @@ if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristineH
   exampleSel.value = "hello";
   editor.value = exampleText("hello");
 }
+setKeyMode(exampleRun(exampleSel.value).keys);
 
 (async () => {
   const wasmReady = loadWasm();
@@ -631,8 +750,8 @@ if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristineH
     ]);
   } catch (e) {}
   term.open($("term"));
-  fitAddon.fit();
-  new ResizeObserver(() => { try { fitAddon.fit(); } catch (e) {} }).observe($("term"));
+  fitTerminal();
+  new ResizeObserver(fitTerminal).observe($("term"));
   try {
     await wasmReady;
   } catch (e) {
