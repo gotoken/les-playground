@@ -69,9 +69,9 @@ python3 -m http.server -d dist 8000   # http://localhost:8000/
 - `web/worker.js` — runs one les program per Web Worker; in-memory fs and stdin
 - `web/hello.en.les`, `web/hello.ja.les` — the starter sample in each UI language
 - `web/examples/` — examples kept in this repository, registered in `scripts/examples.mjs`:
-  `2048.les`, and `real` and `spigot` with one file per UI language (`*.en.les` / `*.ja.les`,
-  which differ only in their comments; the page shows the one for the current UI language and
-  swaps it on a language switch as long as it has not been edited)
+  `2048.les`, and `trace`, `real` and `spigot` with one file per UI language (`*.en.les` / `*.ja.les`,
+  which differ only in their comments, and for `trace` also in the text it prints; the page shows
+  the one for the current UI language and swaps it on a language switch as long as it has not been edited)
 - `scripts/build.sh`, `scripts/build.mjs` — build les.wasm and assemble the site in `dist/`
 - `scripts/smoke.mjs` — smoke test run in CI before deploying
 

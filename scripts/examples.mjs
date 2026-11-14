@@ -19,7 +19,21 @@ const ORDER = Object.keys(LABELS);
 //   files: one file per UI language ({ en, ja }), e.g. the same program with translated comments
 //   run.args: extra command-line arguments; "{seed}" becomes a fresh number on every run
 //   run.keys: start in key input mode (every key press is sent as its own line, arrows as w/a/s/d)
+//   expect: the exact stdout of each language version ({ en, ja }), checked by smoke.mjs;
+//           without it, every language version must print the same thing
 export const OWN = [
+  {
+    name: "trace",
+    files: { en: "trace.en.les", ja: "trace.ja.les" },
+    label: { en: "trace.les — see when values get computed", ja: "trace.les — いつ計算されるかを見る" },
+    // The order of the "(computing ...)" lines is the point of this example.
+    expect: {
+      en: "assignments done\n  (computing b)\nb + b = 4\n  (computing then)\nmy_if = 10\n" +
+        "  (computing 2)\nthird element of xs = 2\n",
+      ja: "代入おわり\n  (b を計算)\nb + b = 4\n  (then を計算)\nmy_if = 10\n" +
+        "  (2 を計算)\nxs の3番目 = 2\n",
+    },
+  },
   {
     name: "2048",
     file: "2048.les",
