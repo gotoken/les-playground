@@ -1,0 +1,23 @@
+# Print the name only when the value is evaluated, and return the value as is
+def trace[T](name: String, v: T) -> T:
+    print "  (computing ", name, ")\n"
+    v
+
+# 1. Variables: not computed until used / never computed if unused / computed once even if used twice
+a = trace("a", 1)
+b = trace("b", 2)
+print "assignments done\n"
+print "b + b = ", b + b, "\n"
+
+# 2. Arguments: even with a hand-written if, the branch not taken is never computed
+def my_if[T](c: Bool, t: T, e: T) -> T:
+    c ? t : e
+
+print "my_if = ", my_if(true, trace("then", 10), trace("else", 20)), "\n"
+
+# 3. Infinite lists: only the elements you take out are computed
+def nats(n: Int):
+    (trace(n.String(), n), nats(n + 1))
+
+xs = nats(0)
+print "third element of xs = ", xs[1][1][0], "\n"

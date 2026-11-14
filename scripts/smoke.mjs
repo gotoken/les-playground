@@ -79,8 +79,17 @@ const checks = [
   }],
 ];
 
-// Examples with one file per UI language must behave the same in every language.
-for (const ex of OWN.filter((e) => e.files)) {
+// Examples with one file per UI language must behave the same in every language:
+// print exactly what `expect` says for that language, or else the same output in all of them.
+for (const ex of OWN.filter((e) => e.files && e.expect)) {
+  checks.push([`${ex.name}: every language version exits 0 with the expected output`, async () => {
+    const results = [];
+    for (const [lang, code] of Object.entries(examples[ex.name])) results.push([lang, await run(code)]);
+    const bad = results.filter(([lang, r]) => r.code !== 0 || r.error || r.stdout !== ex.expect[lang]);
+    return bad.length ? Object.fromEntries(results) : null;
+  }]);
+}
+for (const ex of OWN.filter((e) => e.files && !e.expect)) {
   checks.push([`${ex.name}: every language version exits 0 with the same output`, async () => {
     const results = [];
     for (const [lang, code] of Object.entries(examples[ex.name])) results.push([lang, await run(code)]);

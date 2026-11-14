@@ -1,0 +1,23 @@
+# 評価されたときだけ名前を表示して、値をそのまま返す
+def trace[T](name: String, v: T) -> T:
+    print "  (", name, " を計算)\n"
+    v
+
+# 1. 変数: 使うまで計算しない / 使わなければ計算しない / 2回使っても1回
+a = trace("a", 1)
+b = trace("b", 2)
+print "代入おわり\n"
+print "b + b = ", b + b, "\n"
+
+# 2. 引数: 自作の if でも、選ばれなかった側は計算されない
+def my_if[T](c: Bool, t: T, e: T) -> T:
+    c ? t : e
+
+print "my_if = ", my_if(true, trace("then", 10), trace("else", 20)), "\n"
+
+# 3. 無限列: 取り出した要素だけ計算される
+def nats(n: Int):
+    (trace(n.String(), n), nats(n + 1))
+
+xs = nats(0)
+print "xs の3番目 = ", xs[1][1][0], "\n"
