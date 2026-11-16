@@ -48,6 +48,9 @@ body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); fo
 .app {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* One column that may shrink below its content: otherwise the long names in the example menu
+     make the whole page wider than a phone screen */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   height: 100%;
   max-width: 1440px;
@@ -119,6 +122,24 @@ label.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.
 }
 .term-wrap { flex: 1; min-height: 0; background: var(--term-bg); padding: 8px 4px 6px 10px; }
 #term { width: 100%; height: 100%; }
+/* Wide terminal: a fixed 80 columns, wider than a phone, scrolled sideways */
+body.wide:not(.key-mode) .term-wrap { overflow-x: auto; overflow-y: hidden; }
+
+.panel-head .right { display: inline-flex; align-items: center; gap: 12px; margin-left: auto; }
+.panel-head .tools { display: inline-flex; align-items: center; gap: 6px; }
+.panel-head .tools button {
+  min-height: 28px; min-width: 32px; padding: 3px 7px; color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 0.78rem;
+}
+.panel-head .tools button svg { width: 16px; height: 16px; flex: none; }
+.panel-head .tools button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.panel-head .tools .only-full { display: none; }
+
+/* Full screen terminal: the panel covers the page (the Fullscreen API is not available for this on iPhones) */
+body.term-full { overflow: hidden; }
+.panel.full { position: fixed; inset: 0; z-index: 50; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+.panel.full .term-wrap { flex: 1; height: auto; min-height: 0; }
+.panel.full .tools .only-full { display: inline-flex; }
 
 .stdin { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .stdin input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 14px; }
@@ -183,8 +204,21 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
       <div class="panel-head"><span class="name">/main.les</span><span data-i18n="editorHint">Ctrl+Enter runs · Tab inserts 4 spaces</span></div>
       <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Les source code" data-i18n-aria-label="code"></textarea>
     </section>
-    <section class="panel" aria-label="Terminal" data-i18n-aria-label="terminal">
-      <div class="panel-head"><span class="title"><span class="name" data-i18n="terminal">Terminal</span><span id="status" class="status" data-state="loading" role="status" aria-live="polite">Loading les.wasm…</span></span><span class="hint" data-i18n="terminalHint">Ctrl+C stops · Ctrl+D sends EOF</span></div>
+    <section class="panel" id="term-panel" aria-label="Terminal" data-i18n-aria-label="terminal">
+      <div class="panel-head"><span class="title"><span class="name" data-i18n="terminal">Terminal</span><span id="status" class="status" data-state="loading" role="status" aria-live="polite">Loading les.wasm…</span></span>
+        <span class="right"><span class="hint" data-i18n="terminalHint">Ctrl+C stops · Ctrl+D sends EOF</span>
+          <span class="tools">
+            <button id="t-run" class="only-full" type="button" disabled data-i18n="run">Run</button>
+            <button id="t-stop" class="only-full" type="button" disabled data-i18n="stop">Stop</button>
+            <button id="wide" type="button" aria-pressed="false" title="Wide terminal: 80 columns, scroll sideways" data-i18n-title="wideTitle" aria-label="Wide terminal: 80 columns, scroll sideways" data-i18n-aria-label="wideTitle">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg>
+            </button>
+            <button id="full" type="button" aria-pressed="false" title="Full screen terminal" data-i18n-title="fullTitle" aria-label="Full screen terminal" data-i18n-aria-label="fullTitle">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            </button>
+          </span>
+        </span>
+      </div>
       <div class="term-wrap"><div id="term"></div></div>
       <form class="stdin" id="stdin-form" autocomplete="off">
         <input id="stdin-input" type="text" placeholder="Input for the running program (Enter sends)" data-i18n-placeholder="stdinPlaceholder" aria-label="Standard input" data-i18n-aria-label="stdin" disabled>
@@ -237,6 +271,8 @@ const STRINGS = {
     code: "Les source code",
     terminal: "Terminal",
     terminalHint: "Ctrl+C stops · Ctrl+D sends EOF",
+    wideTitle: "Wide terminal: 80 columns, scroll sideways",
+    fullTitle: "Full screen terminal (Esc closes it)",
     stdin: "Standard input",
     stdinPlaceholder: "Input for the running program (Enter sends)",
     send: "Send",
@@ -279,6 +315,8 @@ const STRINGS = {
     code: "Les のソースコード",
     terminal: "端末",
     terminalHint: "Ctrl+C で停止 · Ctrl+D で EOF",
+    wideTitle: "幅広の端末: 80 桁にして横にスクロール",
+    fullTitle: "端末を全画面にする（Esc で戻る）",
     stdin: "標準入力",
     stdinPlaceholder: "実行中のプログラムへの入力（Enter で送信）",
     send: "送信",
@@ -342,6 +380,7 @@ const $ = (id) => document.getElementById(id);
 const editor = $("code"), statusEl = $("status"), exampleSel = $("example"), langSel = $("lang");
 const runBtn = $("run"), stopBtn = $("stop"), clearBtn = $("clear"), warnBox = $("warnings"), keyBox = $("keymode");
 const keypad = $("keypad"), keypadButtons = [...keypad.querySelectorAll("button")];
+const wideBtn = $("wide"), fullBtn = $("full"), termPanel = $("term-panel"), tRunBtn = $("t-run"), tStopBtn = $("t-stop");
 const stdinForm = $("stdin-form"), stdinInput = $("stdin-input"), stdinSend = $("stdin-send"), stdinEof = $("stdin-eof");
 const enc = new TextEncoder();
 
@@ -357,6 +396,7 @@ function renderStatus() {
 
 /* ---------- terminal ---------- */
 const BASE_FONT = 13.5;
+const WIDE_COLS = 80, SCROLLBAR_W = 14;  // 14 is xterm.js's default scrollbar width, which the fit addon also subtracts
 // 2048.les draws about 55 columns by 22 rows; in key input mode the font shrinks until that fits.
 const KEY_MODE_COLS = 58, KEY_MODE_ROWS = 23;
 const css = getComputedStyle(document.documentElement);
@@ -415,7 +455,22 @@ async function fitTerminal() {
       await nextFrame();
       if (token !== fitToken) return;
     }
-    fitAddon.fit();
+    if (wide && !keyMode) {
+      // A fixed number of columns, whatever the width of the page: the rows come from the height,
+      // and the terminal element is made as wide as 80 columns (and the scrollbar xterm.js adds
+      // on the right), so that .term-wrap scrolls sideways when the screen is narrower.
+      const rows = dims ? dims.rows : term.rows;
+      if (term.cols !== WIDE_COLS || term.rows !== rows) {
+        term.resize(WIDE_COLS, rows);
+        await nextFrame();  // the screen element takes its new width on the next frame
+        if (token !== fitToken) return;
+      }
+      const cellW = term.element.querySelector(".xterm-screen").offsetWidth / term.cols;
+      $("term").style.width = `${Math.ceil(cellW * WIDE_COLS) + SCROLLBAR_W}px`;
+    } else {
+      $("term").style.width = "";
+      fitAddon.fit();
+    }
   } catch (e) {}
 }
 
@@ -424,9 +479,10 @@ async function fitTerminal() {
    terminal can scroll the way the finger moves it takes the whole gesture, and otherwise (the
    output is already at its top or bottom, or there is none) the page scrolls as usual. */
 function enableTouchScroll(el) {
-  let startY = 0, lastY = 0, rest = 0, mode = "";  // mode: "" undecided, "term" or "page"
+  let startX = 0, startY = 0, lastY = 0, rest = 0, mode = "";  // mode: "" undecided, "term" or "page"
   el.addEventListener("touchstart", (e) => {
     mode = e.touches.length === 1 ? "" : "page";
+    startX = e.touches[0].clientX;
     startY = lastY = e.touches[0].clientY;
     rest = 0;
   }, { capture: true, passive: true });
@@ -435,7 +491,10 @@ function enableTouchScroll(el) {
     const y = e.touches[0].clientY;
     const buf = term.buffer.active;
     if (!mode) {
-      if (Math.abs(y - startY) < 4) return;
+      const dx = e.touches[0].clientX - startX;
+      if (Math.abs(y - startY) < 4 && Math.abs(dx) < 4) return;
+      // A mostly sideways swipe is left to the browser: it scrolls the wide terminal.
+      if (Math.abs(dx) > Math.abs(y - startY)) { mode = "page"; return; }
       // A finger moving down shows earlier lines, moving up shows later ones.
       const canScroll = y > startY ? buf.viewportY > 0 : buf.viewportY < buf.baseY;
       mode = buf.type === "normal" && canScroll ? "term" : "page";
@@ -449,6 +508,31 @@ function enableTouchScroll(el) {
     if (n) { term.scrollLines(n); rest -= n; }
   }, { capture: true, passive: false });
 }
+
+/* Two ways to read output on a small screen: a wide terminal that scrolls sideways, and a full
+   screen one. Both buttons sit at the right end of the terminal's title bar. */
+const WIDE_KEY = "les-playground:wide";
+let wide = false;
+try { wide = localStorage.getItem(WIDE_KEY) === "1"; } catch (e) {}
+function setWide(on) {
+  wide = on;
+  wideBtn.setAttribute("aria-pressed", String(on));
+  document.body.classList.toggle("wide", on);
+  try { localStorage.setItem(WIDE_KEY, on ? "1" : "0"); } catch (e) {}
+  fitTerminal();
+}
+let termFull = false;
+function setFull(on) {
+  termFull = on;
+  fullBtn.setAttribute("aria-pressed", String(on));
+  termPanel.classList.toggle("full", on);
+  document.body.classList.toggle("term-full", on);
+  fitTerminal();
+}
+wideBtn.addEventListener("click", () => setWide(!wide));
+fullBtn.addEventListener("click", () => setFull(!termFull));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && termFull) setFull(false); });
+setWide(wide);
 
 /* ---------- wasm + worker ---------- */
 let wasmModule = null, wasmBytes = null;
@@ -508,8 +592,8 @@ function filesForRun() {
 }
 
 function setRunning(on) {
-  runBtn.disabled = !wasmModule;
-  stopBtn.disabled = !on;
+  runBtn.disabled = tRunBtn.disabled = !wasmModule;
+  stopBtn.disabled = tStopBtn.disabled = !on;
   stdinInput.disabled = stdinSend.disabled = stdinEof.disabled = !on;
   for (const b of keypadButtons) b.disabled = !on;
 }
@@ -763,7 +847,9 @@ langSel.addEventListener("change", () => {
   }
 });
 runBtn.addEventListener("click", () => run(true));
+tRunBtn.addEventListener("click", () => run(true));
 stopBtn.addEventListener("click", stop);
+tStopBtn.addEventListener("click", stop);
 clearBtn.addEventListener("click", () => { term.clear(); term.write("\x1b[2K\r"); atLineStart = true; lineBuf = ""; });
 
 /* ---------- start ---------- */
