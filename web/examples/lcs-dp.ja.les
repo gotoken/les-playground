@@ -10,8 +10,11 @@ def tabulate[T](n: Int, f: (Int) -> T) -> (T, ...):
 def max(a: Int, b: Int) -> Int: a > b ? a : b
 
 # t[i][j] = a の先頭 i 文字と b の先頭 j 文字の LCS の長さ
-def lcs_table(a: String, b: String) -> ((Int, ...), ...):
+# verbose のときは、計算されたセルの座標を表示する
+def lcs_table(a: String, b: String, verbose: Bool) -> ((Int, ...), ...):
     def cell(i: Int, j: Int) -> Int:
+        if verbose:
+            print "(", i, ",", j, ") "
         if i == 0 || j == 0:
             0
         else:
@@ -22,23 +25,42 @@ def lcs_table(a: String, b: String) -> ((Int, ...), ...):
     t = tabulate(a.Len() + 1, |i|: tabulate(b.Len() + 1, |j|: cell(i, j)))
     t
 
-# 表を右下からたどって LCS そのものを取り出す
-def lcs(a: String, b: String) -> String:
-    t = lcs_table(a, b)
-    def back(i: Int, j: Int) -> String:
-        if i == 0 || j == 0:
-            ""
+# 表を右下からたどって、a と b を揃えた2行を作る（共通部分列の文字は縦に揃い、ほかは - で埋める）
+def align(a: String, b: String) -> (String, String):
+    t = lcs_table(a, b, false)
+    def back(i: Int, j: Int) -> (String, String):
+        if i == 0 && j == 0:
+            ("", "")
         else:
-            if a[i - 1] == b[j - 1]:
-                back(i - 1, j - 1) + a[i - 1]
+            if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
+                (x, y) = back(i - 1, j - 1)
+                (x + a[i - 1], y + b[j - 1])
             else:
-                t[i - 1][j] >= t[i][j - 1] ? back(i - 1, j) : back(i, j - 1)
+                if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
+                    (x, y) = back(i - 1, j)
+                    (x + a[i - 1], y + "-")
+                else:
+                    (x, y) = back(i, j - 1)
+                    (x + "-", y + b[j - 1])
     back(a.Len(), b.Len())
 
-a = "the quick brown fox jumps over the lazy dog"
-b = "pack my box with five dozen liquor jugs"
-t = lcs_table(a, b)
-print "a = ", a, "\n"
-print "b = ", b, "\n"
-print "LCS length = ", t[a.Len()][b.Len()], "\n"
-print "LCS = \"", lcs(a, b), "\"\n"
+def show(a: String, b: String):
+    (x, y) = align(a, b)
+    print x, "\n", y, "\n\n"
+
+# 1. 似た2文
+show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")
+
+# 2. DNA 配列（教科書でおなじみの組）
+show("ACCGGTCGAGTGCGCGGAAGCCGGCCGAA", "GTCGTTCGGAATGCCGTTGCTCTGTAAA")
+
+# 3. 実際に計算されたセルだけを表示する：似た文字列ほど、表の一部しか計算されない
+def count_cells(a: String, b: String):
+    t = lcs_table(a, b, true)
+    print "\"", a, "\" と \"", b, "\"（表は ", (a.Len() + 1) * (b.Len() + 1), " セル）\n  計算されたセル: "
+    n = t[a.Len()][b.Len()]!
+    print "\n  LCS の長さ = ", n, "\n\n"
+
+count_cells("lazy", "lazy")
+count_cells("lazy", "hazy")
+count_cells("abc", "xyz")
