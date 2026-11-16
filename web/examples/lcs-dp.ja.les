@@ -26,38 +26,28 @@ def lcs_table(a: String, b: String, verbose: Bool) -> ((Int, ...), ...):
     t
 
 # a と b を揃えた2行を作る（共通部分列の文字は縦に揃い、ほかは - で埋める）
-# 表の右下からたどる。評価の順番はどこにも書かない：最初の参照が、依存するセルを引き出す
-def align(a: String, b: String) -> (String, String):
+# 表の右下からたどり、2行・| の印・LCS を一緒に組み立てる
+# （一致とパディングはここで区別するので、入力に - があっても正しく扱える）
+def align(a: String, b: String) -> (String, String, String, String):
     t = lcs_table(a, b, false)
-    def back(i: Int, j: Int) -> (String, String):
+    def back(i: Int, j: Int) -> (String, String, String, String):
         if i == 0 && j == 0:
-            ("", "")
+            ("", "", "", "")
         else:
             if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
-                (x, y) = back(i - 1, j - 1)
-                (x + a[i - 1], y + b[j - 1])
+                (x, y, m, c) = back(i - 1, j - 1)
+                (x + a[i - 1], y + b[j - 1], m + "|", c + a[i - 1])
             else:
                 if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
-                    (x, y) = back(i - 1, j)
-                    (x + a[i - 1], y + "-")
+                    (x, y, m, c) = back(i - 1, j)
+                    (x + a[i - 1], y + "-", m + " ", c)
                 else:
-                    (x, y) = back(i, j - 1)
-                    (x + "-", y + b[j - 1])
+                    (x, y, m, c) = back(i, j - 1)
+                    (x + "-", y + b[j - 1], m + " ", c)
     back(a.Len(), b.Len())
 
-# 揃えた2行、一致した列の印 |、LCS の長さと LCS そのものを表示する
 def show(a: String, b: String):
-    (x, y) = align(a, b)
-    marks = ""
-    common = ""
-    k = 0
-    for k < x.Len():
-        if x[k] == y[k] && x[k] != "-":
-            marks = marks + "|"
-            common = common + x[k]
-        else:
-            marks = marks + " "
-        k = k + 1
+    (x, y, marks, common) = align(a, b)
     print x, "\n", marks, "\n", y, "\n"
     print "LCS の長さ = ", common.Len(), "\n"
     print "LCS        = \"", common, "\"\n\n"
