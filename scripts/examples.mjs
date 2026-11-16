@@ -50,6 +50,11 @@ export const OWN = [
     files: { en: "spigot.en.les", ja: "spigot.ja.les" },
     label: { en: "spigot.les — digits of π as an infinite stream", ja: "spigot.les — π の桁を無限ストリームで" },
   },
+  {
+    name: "lcs-dp",
+    files: { en: "lcs-dp.en.les", ja: "lcs-dp.ja.les" },
+    label: { en: "lcs-dp.les — dynamic programming with a lazy table", ja: "lcs-dp.les — 遅延評価の表で動的計画法" },
+  },
 ];
 
 const readExample = (file) => readFile(path.join(root, "web", "examples", file), "utf8");
