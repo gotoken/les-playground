@@ -2,10 +2,14 @@
 # 最長共通部分列 (LCS) を、埋める順番を書かずに求める
 
 # (f(0), f(1), ..., f(n-1))。各要素は使われるまで計算されず、計算は1回だけ
+# （ループで組み立てる。要素は遅延のままで、組み立てに深い再帰は要らない）
 def tabulate[T](n: Int, f: (Int) -> T) -> (T, ...):
-    def from(i: Int) -> (T, ...):
-        i == n ? () : (f(i), ...from(i + 1))
-    from(0)
+    acc: (T, ...) = ()
+    i = 0
+    for i < n:
+        acc = acc << f(i)
+        i = i + 1
+    acc
 
 def max(a: Int, b: Int) -> Int: a > b ? a : b
 
@@ -25,24 +29,42 @@ def lcs_table(a: String, b: String, verbose: Bool) -> ((Int, ...), ...):
     t = tabulate(a.Len() + 1, |i|: tabulate(b.Len() + 1, |j|: cell(i, j)))
     t
 
-# 表を右下からたどって、a と b を揃えた2行を作る（共通部分列の文字は縦に揃い、ほかは - で埋める）
+# a と b を揃えた2行を作る（共通部分列の文字は縦に揃い、ほかは - で埋める）
+# たどる前に、表のセルを行ごとに順に評価しておく。遅延評価の言語では本来これは要らない
+# （最初の参照が、依存するセルを引き出してくれる）。ここでやるのは、この処理系がブラウザの
+# スタックで再帰するため、依存するセルの連鎖が長いと一部のブラウザ（iOS Safari）で溢れるから。
+# 右下からたどる処理がループなのも同じ理由。
 def align(a: String, b: String) -> (String, String):
+    n = a.Len()
+    m = b.Len()
     t = lcs_table(a, b, false)
-    def back(i: Int, j: Int) -> (String, String):
-        if i == 0 && j == 0:
-            ("", "")
+    i = 0
+    for i <= n:
+        j = 0
+        for j <= m:
+            _ = t[i][j]!
+            j = j + 1
+        i = i + 1
+    x = ""
+    y = ""
+    i = n
+    j = m
+    for i > 0 || j > 0:
+        if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
+            x = a[i - 1] + x
+            y = b[j - 1] + y
+            i = i - 1
+            j = j - 1
         else:
-            if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
-                (x, y) = back(i - 1, j - 1)
-                (x + a[i - 1], y + b[j - 1])
+            if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
+                x = a[i - 1] + x
+                y = "-" + y
+                i = i - 1
             else:
-                if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
-                    (x, y) = back(i - 1, j)
-                    (x + a[i - 1], y + "-")
-                else:
-                    (x, y) = back(i, j - 1)
-                    (x + "-", y + b[j - 1])
-    back(a.Len(), b.Len())
+                x = "-" + x
+                y = b[j - 1] + y
+                j = j - 1
+    (x, y)
 
 def show(a: String, b: String):
     (x, y) = align(a, b)
