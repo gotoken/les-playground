@@ -58,10 +58,16 @@ export const OWN = [
     expect: {
       en:
         "lazy evaluation computes -a-- value on---ly when------ needed\n" +
+        "||||||||||||||||||||||||| |  |||||||||     |||||      |||||||\n" +
         "lazy evaluation computes each value once,-- when first needed\n" +
+        "LCS length = 47\n" +
+        "LCS        = \"lazy evaluation computes a value on when needed\"\n" +
         "\n" +
         "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "    ||||   |   ||||| ||||  || | |  ||\n" +
         "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
+        "LCS length = 20\n" +
+        "LCS        = \"GTCGTCGGAAGCCGGCCGAA\"\n" +
         "\n" +
         "\"lazy\" and \"lazy\" (the table has 25 cells)\n" +
         "  computed cells: (4,4) (3,3) (2,2) (1,1) (0,0) \n" +
@@ -77,10 +83,16 @@ export const OWN = [
         "\n",
       ja:
         "lazy evaluation computes -a-- value on---ly when------ needed\n" +
+        "||||||||||||||||||||||||| |  |||||||||     |||||      |||||||\n" +
         "lazy evaluation computes each value once,-- when first needed\n" +
+        "LCS の長さ = 47\n" +
+        "LCS        = \"lazy evaluation computes a value on when needed\"\n" +
         "\n" +
         "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "    ||||   |   ||||| ||||  || | |  ||\n" +
         "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
+        "LCS の長さ = 20\n" +
+        "LCS        = \"GTCGTCGGAAGCCGGCCGAA\"\n" +
         "\n" +
         "\"lazy\" と \"lazy\"（表は 25 セル）\n" +
         "  計算されたセル: (4,4) (3,3) (2,2) (1,1) (0,0) \n" +
