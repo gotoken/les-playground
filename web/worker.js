@@ -181,6 +181,15 @@ importScripts("wasm_exec.js" + self.location.search);
 
 let started = false;
 
+// What to show when the wasm program dies with a JS error. Safari's stack has no first line with the
+// error itself ("RangeError: Maximum call stack size exceeded"), so put it first, and keep the
+// stack to a few frames: wasm function numbers mean little to the reader.
+function describeError(e) {
+  const head = e && e.message ? `${e.name || "Error"}: ${e.message}` : String(e);
+  const frames = e && e.stack ? String(e.stack).split("\n").filter((l) => l && !head.startsWith(l) && !l.includes(head)) : [];
+  return [head, ...frames.slice(0, 6), ...(frames.length > 6 ? ["    …"] : [])].join("\n");
+}
+
 self.onmessage = async (ev) => {
   const msg = ev.data;
   switch (msg.type) {
@@ -202,7 +211,7 @@ self.onmessage = async (ev) => {
         await go.run(inst);
         post({ type: "exit", code: exitCode });
       } catch (e) {
-        post({ type: "error", message: String(e && e.stack || e) });
+        post({ type: "error", message: describeError(e) });
       }
       break;
     }
