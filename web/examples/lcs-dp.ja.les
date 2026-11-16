@@ -1,0 +1,44 @@
+# 遅延評価による動的計画法：表が自分自身を参照する（Haskell の遅延配列と同じ流儀）
+# 最長共通部分列 (LCS) を、埋める順番を書かずに求める
+
+# (f(0), f(1), ..., f(n-1))。各要素は使われるまで計算されず、計算は1回だけ
+def tabulate[T](n: Int, f: (Int) -> T) -> (T, ...):
+    def from(i: Int) -> (T, ...):
+        i == n ? () : (f(i), ...from(i + 1))
+    from(0)
+
+def max(a: Int, b: Int) -> Int: a > b ? a : b
+
+# t[i][j] = a の先頭 i 文字と b の先頭 j 文字の LCS の長さ
+def lcs_table(a: String, b: String) -> ((Int, ...), ...):
+    def cell(i: Int, j: Int) -> Int:
+        if i == 0 || j == 0:
+            0
+        else:
+            if a[i - 1] == b[j - 1]:
+                t[i - 1][j - 1] + 1                 # 定義中の表 t 自身を引く
+            else:
+                max(t[i - 1][j], t[i][j - 1])
+    t = tabulate(a.Len() + 1, |i|: tabulate(b.Len() + 1, |j|: cell(i, j)))
+    t
+
+# 表を右下からたどって LCS そのものを取り出す
+def lcs(a: String, b: String) -> String:
+    t = lcs_table(a, b)
+    def back(i: Int, j: Int) -> String:
+        if i == 0 || j == 0:
+            ""
+        else:
+            if a[i - 1] == b[j - 1]:
+                back(i - 1, j - 1) + a[i - 1]
+            else:
+                t[i - 1][j] >= t[i][j - 1] ? back(i - 1, j) : back(i, j - 1)
+    back(a.Len(), b.Len())
+
+a = "the quick brown fox jumps over the lazy dog"
+b = "pack my box with five dozen liquor jugs"
+t = lcs_table(a, b)
+print "a = ", a, "\n"
+print "b = ", b, "\n"
+print "LCS length = ", t[a.Len()][b.Len()], "\n"
+print "LCS = \"", lcs(a, b), "\"\n"
