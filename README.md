@@ -16,6 +16,11 @@ in the header switches it; the choice is remembered in the browser.
   The worker's event loop keeps running while the Go goroutine waits, so no `SharedArrayBuffer` is needed.
 - Every run gets a fresh Web Worker. Stop (Ctrl+C) simply terminates it.
 - The terminal is [xterm.js](https://xtermjs.org/). Line editing (echo, Backspace, Ctrl+U, Ctrl+D) is done by the page.
+- Two buttons at the right end of the terminal's title bar help on a small screen. The first makes the
+  terminal a fixed 80 columns wide and scrolls it sideways; the second shows the terminal full screen
+  (Esc closes it; Run and Stop are repeated in its title bar). xterm.js 6 does not scroll its scrollback
+  by touch, so the page does it: a vertical swipe scrolls the output, a sideways one scrolls the wide terminal,
+  and at either end the page scrolls as usual.
 
 ## Key input mode
 
