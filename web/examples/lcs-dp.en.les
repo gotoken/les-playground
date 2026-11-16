@@ -66,9 +66,25 @@ def align(a: String, b: String) -> (String, String):
                 j = j - 1
     (x, y)
 
+# Print the two rows in blocks of 40 characters, with | under each matching column, so that the
+# rows stay one above the other on a narrow terminal (a phone) instead of wrapping apart
 def show(a: String, b: String):
     (x, y) = align(a, b)
-    print x, "\n", y, "\n\n"
+    n = x.Len()
+    top = ""
+    mid = ""
+    bot = ""
+    k = 0
+    for k < n:
+        top = top + x[k]
+        mid = mid + (x[k] == y[k] && x[k] != "-" ? "|" : " ")
+        bot = bot + y[k]
+        k = k + 1
+        if k % 40 == 0 || k == n:
+            print top, "\n", mid, "\n", bot, "\n\n"
+            top = ""
+            mid = ""
+            bot = ""
 
 # 1. Two similar sentences
 show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")

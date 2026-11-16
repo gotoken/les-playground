@@ -57,10 +57,16 @@ export const OWN = [
     // The cells listed under "computed cells" are the point of this example: only those get computed.
     expect: {
       en:
-        "lazy evaluation computes -a-- value on---ly when------ needed\n" +
-        "lazy evaluation computes each value once,-- when first needed\n" +
+        "lazy evaluation computes -a-- value on--\n" +
+        "||||||||||||||||||||||||| |  |||||||||  \n" +
+        "lazy evaluation computes each value once\n" +
+        "\n" +
+        "-ly when------ needed\n" +
+        "   |||||      |||||||\n" +
+        ",-- when first needed\n" +
         "\n" +
         "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "    ||||   |   ||||| ||||  || | |  ||\n" +
         "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
         "\n" +
         "\"lazy\" and \"lazy\" (the table has 25 cells)\n" +
@@ -76,10 +82,16 @@ export const OWN = [
         "  LCS length = 0\n" +
         "\n",
       ja:
-        "lazy evaluation computes -a-- value on---ly when------ needed\n" +
-        "lazy evaluation computes each value once,-- when first needed\n" +
+        "lazy evaluation computes -a-- value on--\n" +
+        "||||||||||||||||||||||||| |  |||||||||  \n" +
+        "lazy evaluation computes each value once\n" +
+        "\n" +
+        "-ly when------ needed\n" +
+        "   |||||      |||||||\n" +
+        ",-- when first needed\n" +
         "\n" +
         "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "    ||||   |   ||||| ||||  || | |  ||\n" +
         "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
         "\n" +
         "\"lazy\" と \"lazy\"（表は 25 セル）\n" +

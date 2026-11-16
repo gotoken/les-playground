@@ -66,9 +66,25 @@ def align(a: String, b: String) -> (String, String):
                 j = j - 1
     (x, y)
 
+# 2行を 40 文字ずつのブロックにし、一致した列の下に | を付けて表示する。
+# 幅の狭い端末（スマホ）でも、2行が折り返されて離れてしまわないようにするため
 def show(a: String, b: String):
     (x, y) = align(a, b)
-    print x, "\n", y, "\n\n"
+    n = x.Len()
+    top = ""
+    mid = ""
+    bot = ""
+    k = 0
+    for k < n:
+        top = top + x[k]
+        mid = mid + (x[k] == y[k] && x[k] != "-" ? "|" : " ")
+        bot = bot + y[k]
+        k = k + 1
+        if k % 40 == 0 || k == n:
+            print top, "\n", mid, "\n", bot, "\n\n"
+            top = ""
+            mid = ""
+            bot = ""
 
 # 1. 似た2文
 show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")
