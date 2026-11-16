@@ -54,6 +54,47 @@ export const OWN = [
     name: "lcs-dp",
     files: { en: "lcs-dp.en.les", ja: "lcs-dp.ja.les" },
     label: { en: "lcs-dp.les — dynamic programming with a lazy table", ja: "lcs-dp.les — 遅延評価の表で動的計画法" },
+    // The cells listed under "computed cells" are the point of this example: only those get computed.
+    expect: {
+      en:
+        "lazy evaluation computes -a-- value on---ly when------ needed\n" +
+        "lazy evaluation computes each value once,-- when first needed\n" +
+        "\n" +
+        "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
+        "\n" +
+        "\"lazy\" and \"lazy\" (the table has 25 cells)\n" +
+        "  computed cells: (4,4) (3,3) (2,2) (1,1) (0,0) \n" +
+        "  LCS length = 4\n" +
+        "\n" +
+        "\"lazy\" and \"hazy\" (the table has 25 cells)\n" +
+        "  computed cells: (4,4) (3,3) (2,2) (1,1) (0,1) (1,0) \n" +
+        "  LCS length = 3\n" +
+        "\n" +
+        "\"abc\" and \"xyz\" (the table has 16 cells)\n" +
+        "  computed cells: (3,3) (2,3) (1,3) (0,3) (1,2) (0,2) (1,1) (0,1) (1,0) (2,2) (2,1) (2,0) (3,2) (3,1) (3,0) \n" +
+        "  LCS length = 0\n" +
+        "\n",
+      ja:
+        "lazy evaluation computes -a-- value on---ly when------ needed\n" +
+        "lazy evaluation computes each value once,-- when first needed\n" +
+        "\n" +
+        "ACCGGTCG-AGTGCGCGGAA-GCCG--GC-C-G--AA\n" +
+        "----GTCGT--T---CGGAATGCCGTTGCTCTGTAAA\n" +
+        "\n" +
+        "\"lazy\" と \"lazy\"（表は 25 セル）\n" +
+        "  計算されたセル: (4,4) (3,3) (2,2) (1,1) (0,0) \n" +
+        "  LCS の長さ = 4\n" +
+        "\n" +
+        "\"lazy\" と \"hazy\"（表は 25 セル）\n" +
+        "  計算されたセル: (4,4) (3,3) (2,2) (1,1) (0,1) (1,0) \n" +
+        "  LCS の長さ = 3\n" +
+        "\n" +
+        "\"abc\" と \"xyz\"（表は 16 セル）\n" +
+        "  計算されたセル: (3,3) (2,3) (1,3) (0,3) (1,2) (0,2) (1,1) (0,1) (1,0) (2,2) (2,1) (2,0) (3,2) (3,1) (3,0) \n" +
+        "  LCS の長さ = 0\n" +
+        "\n",
+    },
   },
 ];
 
