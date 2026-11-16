@@ -419,6 +419,37 @@ async function fitTerminal() {
   } catch (e) {}
 }
 
+/* xterm.js 6 does not scroll its scrollback by touch, so a swipe over the terminal scrolled the page
+   instead and long output could not be read on a phone. Handle vertical swipes here: while the
+   terminal can scroll the way the finger moves it takes the whole gesture, and otherwise (the
+   output is already at its top or bottom, or there is none) the page scrolls as usual. */
+function enableTouchScroll(el) {
+  let startY = 0, lastY = 0, rest = 0, mode = "";  // mode: "" undecided, "term" or "page"
+  el.addEventListener("touchstart", (e) => {
+    mode = e.touches.length === 1 ? "" : "page";
+    startY = lastY = e.touches[0].clientY;
+    rest = 0;
+  }, { capture: true, passive: true });
+  el.addEventListener("touchmove", (e) => {
+    if (mode === "page" || e.touches.length !== 1) return;
+    const y = e.touches[0].clientY;
+    const buf = term.buffer.active;
+    if (!mode) {
+      if (Math.abs(y - startY) < 4) return;
+      // A finger moving down shows earlier lines, moving up shows later ones.
+      const canScroll = y > startY ? buf.viewportY > 0 : buf.viewportY < buf.baseY;
+      mode = buf.type === "normal" && canScroll ? "term" : "page";
+      if (mode === "page") return;
+    }
+    if (e.cancelable) e.preventDefault();
+    const cell = el.querySelector(".xterm-screen").clientHeight / term.rows;
+    rest += (lastY - y) / cell;
+    lastY = y;
+    const n = Math.trunc(rest);
+    if (n) { term.scrollLines(n); rest -= n; }
+  }, { capture: true, passive: false });
+}
+
 /* ---------- wasm + worker ---------- */
 let wasmModule = null, wasmBytes = null;
 let worker = null, decoders = null, startedAt = 0, userStarted = false;
@@ -757,6 +788,7 @@ setKeyMode(exampleRun(exampleSel.value).keys);
     ]);
   } catch (e) {}
   term.open($("term"));
+  enableTouchScroll($("term"));
   fitTerminal();
   new ResizeObserver(fitTerminal).observe($("term"));
   try {
