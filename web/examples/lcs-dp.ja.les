@@ -2,14 +2,10 @@
 # 最長共通部分列 (LCS) を、埋める順番を書かずに求める
 
 # (f(0), f(1), ..., f(n-1))。各要素は使われるまで計算されず、計算は1回だけ
-# （ループで組み立てる。要素は遅延のままで、組み立てに深い再帰は要らない）
 def tabulate[T](n: Int, f: (Int) -> T) -> (T, ...):
-    acc: (T, ...) = ()
-    i = 0
-    for i < n:
-        acc = acc << f(i)
-        i = i + 1
-    acc
+    def from(i: Int) -> (T, ...):
+        i == n ? () : (f(i), ...from(i + 1))
+    from(0)
 
 def max(a: Int, b: Int) -> Int: a > b ? a : b
 
@@ -30,45 +26,41 @@ def lcs_table(a: String, b: String, verbose: Bool) -> ((Int, ...), ...):
     t
 
 # a と b を揃えた2行を作る（共通部分列の文字は縦に揃い、ほかは - で埋める）
-# たどる前に、表のセルを行ごとに順に評価しておく。遅延評価の言語では本来これは要らない
-# （最初の参照が、依存するセルを引き出してくれる）。ここでやるのは、この処理系がブラウザの
-# スタックで再帰するため、依存するセルの連鎖が長いと一部のブラウザ（iOS Safari）で溢れるから。
-# 右下からたどる処理がループなのも同じ理由。
+# 表の右下からたどる。評価の順番はどこにも書かない：最初の参照が、依存するセルを引き出す
 def align(a: String, b: String) -> (String, String):
-    n = a.Len()
-    m = b.Len()
     t = lcs_table(a, b, false)
-    i = 0
-    for i <= n:
-        j = 0
-        for j <= m:
-            _ = t[i][j]!
-            j = j + 1
-        i = i + 1
-    x = ""
-    y = ""
-    i = n
-    j = m
-    for i > 0 || j > 0:
-        if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
-            x = a[i - 1] + x
-            y = b[j - 1] + y
-            i = i - 1
-            j = j - 1
+    def back(i: Int, j: Int) -> (String, String):
+        if i == 0 && j == 0:
+            ("", "")
         else:
-            if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
-                x = a[i - 1] + x
-                y = "-" + y
-                i = i - 1
+            if i > 0 && j > 0 && a[i - 1] == b[j - 1]:
+                (x, y) = back(i - 1, j - 1)
+                (x + a[i - 1], y + b[j - 1])
             else:
-                x = "-" + x
-                y = b[j - 1] + y
-                j = j - 1
-    (x, y)
+                if j == 0 || (i > 0 && t[i - 1][j] >= t[i][j - 1]):
+                    (x, y) = back(i - 1, j)
+                    (x + a[i - 1], y + "-")
+                else:
+                    (x, y) = back(i, j - 1)
+                    (x + "-", y + b[j - 1])
+    back(a.Len(), b.Len())
 
+# 揃えた2行、一致した列の印 |、LCS の長さと LCS そのものを表示する
 def show(a: String, b: String):
     (x, y) = align(a, b)
-    print x, "\n", y, "\n\n"
+    marks = ""
+    common = ""
+    k = 0
+    for k < x.Len():
+        if x[k] == y[k] && x[k] != "-":
+            marks = marks + "|"
+            common = common + x[k]
+        else:
+            marks = marks + " "
+        k = k + 1
+    print x, "\n", marks, "\n", y, "\n"
+    print "LCS の長さ = ", common.Len(), "\n"
+    print "LCS        = \"", common, "\"\n\n"
 
 # 1. 似た2文
 show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")
