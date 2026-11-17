@@ -134,6 +134,19 @@ body.wide:not(.key-mode) .term-wrap { overflow-x: auto; overflow-y: hidden; }
 .panel-head .tools button svg { width: 16px; height: 16px; flex: none; }
 .panel-head .tools button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .panel-head .tools .only-full { display: none; }
+#share-dialog {
+  width: min(92vw, 460px); padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); color: var(--ink);
+}
+#share-dialog::backdrop { background: rgba(10, 12, 20, 0.45); }
+#share-dialog .share-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 4px; }
+#share-close { min-height: 30px; min-width: 30px; padding: 4px; border: 0; background: transparent; color: var(--muted); display: inline-flex; }
+#share-close svg { width: 18px; height: 18px; }
+#share-dialog label { display: block; margin: 10px 0 4px; font-size: 0.78rem; color: var(--muted); }
+#share-dialog input { width: 100%; font-family: var(--font-mono); font-size: 0.85rem; }
+#share-url { color: var(--muted); }
+#share-dialog .share-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+#share-msg { font-size: 0.8rem; color: var(--ok); }
 
 /* Full screen terminal: the panel covers the page (the Fullscreen API is not available for this on iPhones) */
 body.term-full { overflow: hidden; }
@@ -205,7 +218,15 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
 
   <main class="work">
     <section class="panel" aria-label="Editor" data-i18n-aria-label="editor">
-      <div class="panel-head"><span class="name">/main.les</span><span data-i18n="editorHint">Ctrl+Enter runs · Tab inserts 4 spaces</span></div>
+      <div class="panel-head"><span class="name">/main.les</span>
+        <span class="right"><span class="hint" data-i18n="editorHint">Ctrl+Enter runs · Tab inserts 4 spaces</span>
+          <span class="tools">
+            <button id="share" type="button" disabled aria-haspopup="dialog" title="Share this script (after a run, until it is edited)" data-i18n-title="shareTitle" aria-label="Share this script (after a run, until it is edited)" data-i18n-aria-label="shareTitle">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+            </button>
+          </span>
+        </span>
+      </div>
       <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Les source code" data-i18n-aria-label="code"></textarea>
     </section>
     <section class="panel" id="term-panel" aria-label="Terminal" data-i18n-aria-label="terminal">
@@ -248,6 +269,23 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
   </footer>
 </div>
 
+<dialog id="share-dialog" aria-labelledby="share-heading">
+  <div class="share-head"><span id="share-heading" data-i18n="shareHeading">Share this script</span>
+    <button id="share-close" type="button" aria-label="Close" data-i18n-aria-label="shareClose" title="Close" data-i18n-title="shareClose">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <label for="share-name" data-i18n="shareNameLabel">Description (the link's label and the file name)</label>
+  <input id="share-name" type="text" value="my-script.les" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">
+  <label for="share-url" id="share-url-label">Link</label>
+  <input id="share-url" type="text" readonly>
+  <div class="share-actions">
+    <button id="share-copy" class="primary" type="button" disabled data-i18n="shareCopy">Copy link</button>
+    <button id="share-download" type="button" data-i18n="shareDownload">Download</button>
+    <span id="share-msg" role="status" aria-live="polite"></span>
+  </div>
+</dialog>
+
 <script>
 "use strict";
 // Filled in by scripts/build.mjs: les version info, the example menu, the starter sample in each
@@ -260,6 +298,17 @@ const STRINGS = {
     statusLoading: "Loading les.wasm…",
     statusLoadingMB: "Loading les.wasm… {mb} MB",
     statusCompiling: "Compiling…",
+    shareTitle: "Share this script (after a run, until it is edited)",
+    shareHeading: "Share this script",
+    shareClose: "Close",
+    shareNameLabel: "Description (the link's label and the file name)",
+    shareUrlLabel: "Link ({n} characters)",
+    shareCopy: "Copy link",
+    shareCopied: "Copied",
+    shareCopyFailed: "Could not copy; copy the link above by hand",
+    shareDownload: "Download",
+    linkBadScript: "The script in the link could not be read.",
+    linkUnknownExample: "The link names an example that does not exist: {name}",
     probeRunning: "Measuring stack score…",
     probeResult: "Stack score: {n}",
     probeAtLeast: "Stack score: {n}+",
@@ -310,6 +359,17 @@ const STRINGS = {
     statusLoading: "les.wasm を読み込み中…",
     statusLoadingMB: "les.wasm を読み込み中… {mb} MB",
     statusCompiling: "コンパイル中…",
+    shareTitle: "このスクリプトを共有（実行後、編集するまで）",
+    shareHeading: "このスクリプトを共有",
+    shareClose: "閉じる",
+    shareNameLabel: "説明（リンクのラベルとファイル名になります）",
+    shareUrlLabel: "リンク（{n} 文字）",
+    shareCopy: "リンクをコピー",
+    shareCopied: "コピーしました",
+    shareCopyFailed: "コピーできませんでした。上のリンクを手でコピーしてください",
+    shareDownload: "ダウンロード",
+    linkBadScript: "リンクに入っているスクリプトを読み取れませんでした。",
+    linkUnknownExample: "リンクが指す例はありません: {name}",
     probeRunning: "スタックスコアを測定中…",
     probeResult: "スタックスコア: {n}",
     probeAtLeast: "スタックスコア: {n} 以上",
@@ -621,6 +681,7 @@ function run(byUser) {
   if (worker) kill();
   saveDraft();
   userStarted = byUser;
+  runCode = editor.value; ranCode = null; updateShare();
   lineBuf = ""; prevCR = false;
   decoders = { 1: new TextDecoder(), 2: new TextDecoder() };
   const args = runArgs();
@@ -684,6 +745,7 @@ function kill() {
 function finish(code) {
   const ms = Math.round(performance.now() - startedAt);
   kill();
+  ranCode = runCode; updateShare();
   if (code === null) {
     notice(t("noticeCrash", { ms }));
     setStatus("failed", "statusCrashed");
@@ -696,6 +758,7 @@ function finish(code) {
 function stop() {
   if (!worker) return;
   kill();
+  ranCode = runCode; updateShare();
   out("^C\n");
   notice(t("noticeStopped"));
   setStatus("ready", "statusStopped");
@@ -808,7 +871,7 @@ editor.addEventListener("keydown", (e) => {
   }
   tabEscapes = false;
 });
-editor.addEventListener("input", () => saveDraft());
+editor.addEventListener("input", () => { saveDraft(); updateShare(); });
 
 function saveDraft() {
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ example: exampleSel.value, code: editor.value })); } catch (e) {}
@@ -858,10 +921,12 @@ langSel.addEventListener("change", () => {
   renderMenu();
   renderStatus();
   renderProbe();
+  renderShareUrl();
   const name = exampleSel.value;
   if (isPristine(name, editor.value) && editor.value !== exampleText(name)) {
     editor.value = exampleText(name);
     saveDraft();
+    updateShare();
     if (worker) run(true);  // e.g. the starter sample's old-language prompt is still waiting
   }
 });
@@ -883,6 +948,132 @@ if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristine(
   editor.value = exampleText(draftExample);  // an untouched example, in the current language
 }
 setKeyMode(exampleRun(exampleSel.value).keys);
+
+/* ---------- links: #ex=<example> picks an example; #z=… / #u=… carry a script ---------- */
+// The script travels in the fragment, so it is never sent to a server. z = raw DEFLATE, u = plain UTF-8,
+// both base64url; the share dialog uses whichever is shorter. ex also rides along with a script when the
+// example has run settings (arguments, key input) the script needs. An untouched example is just #ex=<name>.
+const b64url = (bytes) => {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+const unb64url = (text) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+
+async function linkFor(name, code) {
+  const base = location.origin + location.pathname + location.search;
+  const src = exampleSource(name);
+  if (code === exampleText(name) || (src && typeof src === "object" && Object.values(src).includes(code))) return `${base}#ex=${encodeURIComponent(name)}`;
+  const raw = enc.encode(code);
+  let part = "u=" + b64url(raw);
+  if (typeof CompressionStream === "function") {
+    try {
+      const z = "z=" + b64url(await pipe(raw, new CompressionStream("deflate-raw")));
+      if (z.length < part.length) part = z;
+    } catch (e) {}
+  }
+  const run = exampleRun(name);
+  const needsExample = (run.args && run.args.length) || run.keys;
+  return `${base}#${needsExample ? `ex=${encodeURIComponent(name)}&` : ""}${part}`;
+}
+
+// Put what the link says into the editor. Returns whether it did; the fragment is then dropped from the
+// address bar, so a reload keeps later edits (the draft) instead of going back to the link.
+async function loadFromLink() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  let name = params.get("ex"), code = null;
+  const z = params.get("z"), u = params.get("u");
+  if (name === null && z === null && u === null) return false;
+  try {
+    if (z !== null) code = new TextDecoder("utf-8", { fatal: true }).decode(await pipe(unb64url(z), new DecompressionStream("deflate-raw")));
+    else if (u !== null) code = new TextDecoder("utf-8", { fatal: true }).decode(unb64url(u));
+  } catch (e) {
+    out(t("linkBadScript") + "\n", "31");
+    return false;
+  }
+  if (name !== null && !hasExample(name)) {
+    out(t("linkUnknownExample", { name }) + "\n", "31");
+    if (code === null) return false;
+    name = null;
+  }
+  exampleSel.value = name || "hello";
+  editor.value = code === null ? exampleText(name) : code;
+  setKeyMode(exampleRun(exampleSel.value).keys);
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  return true;
+}
+window.addEventListener("hashchange", async () => {
+  if (wasmModule && await loadFromLink()) run(true);
+});
+
+/* ---------- share dialog ---------- */
+// The button works once a run of the editor's current text has ended (exit, crash or Stop), and stops
+// working as soon as the text is edited: what is shared is what was run.
+const shareBtn = $("share"), shareDlg = $("share-dialog"), shareName = $("share-name"), shareUrl = $("share-url");
+const shareCopy = $("share-copy"), shareMsg = $("share-msg");
+const SHARE_NAME = "my-script.les";
+let runCode = null, ranCode = null, sharedCode = null, shareLink = "";
+function updateShare() {
+  shareBtn.disabled = !(ranCode !== null && !worker && editor.value === ranCode);
+  if (shareBtn.disabled && shareDlg.open) shareDlg.close();
+}
+function renderShareUrl() {
+  $("share-url-label").textContent = t("shareUrlLabel", { n: shareLink.length.toLocaleString(lang) });
+}
+const shareLabel = () => shareName.value.trim() || SHARE_NAME;
+shareBtn.addEventListener("click", async () => {
+  const code = ranCode, name = exampleSel.value;
+  if (code === null || typeof shareDlg.showModal !== "function") return;
+  if (sharedCode !== code) {  // a new script: forget the previous description
+    shareName.value = code === exampleText(name) || isPristine(name, code) ? `${name}.les` : SHARE_NAME;
+    sharedCode = code;
+  }
+  shareLink = ""; shareUrl.value = "…"; shareCopy.disabled = true; shareMsg.textContent = "";
+  renderShareUrl();
+  shareDlg.showModal();
+  shareName.select();
+  const link = await linkFor(name, code);
+  if (sharedCode !== code) return;
+  shareLink = shareUrl.value = link;
+  shareCopy.disabled = false;
+  renderShareUrl();
+});
+// Ways out, none of them a "Cancel" button: the × in the corner, Esc (built into <dialog>), a click outside.
+$("share-close").addEventListener("click", () => shareDlg.close());
+shareDlg.addEventListener("click", (e) => { if (e.target === shareDlg) shareDlg.close(); });
+
+const escHtml = (text) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+// A rich-text link (label = the description) for apps that take one, such as Slack or a chat with an AI,
+// with the bare URL as the plain-text alternative for everything else.
+shareCopy.addEventListener("click", async () => {
+  const html = `<a href="${escHtml(shareLink)}">${escHtml(shareLabel())}</a>`;
+  let ok = false;
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([shareLink], { type: "text/plain" }),
+    })]);
+    ok = true;
+  } catch (e) {
+    try { await navigator.clipboard.writeText(shareLink); ok = true; } catch (e2) {
+      shareUrl.select();
+      try { ok = document.execCommand("copy"); } catch (e3) {}
+    }
+  }
+  shareMsg.textContent = t(ok ? "shareCopied" : "shareCopyFailed");
+});
+$("share-download").addEventListener("click", () => {
+  let file = shareLabel().replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_");
+  if (!/\.les$/i.test(file)) file += ".les";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([sharedCode], { type: "text/plain;charset=utf-8" }));
+  a.download = file;
+  shareDlg.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
 
 /* ---------- stack probe: how deep can les recurse in this browser? ---------- */
 // les evaluates on the browser's own stack, so a program that recurses too deeply crashes with a
@@ -966,6 +1157,7 @@ async function runProbe() {
   }
   setStatus("ready", "statusReady");
   setRunning(false);
+  await loadFromLink();
   run(false);
   setTimeout(runProbe, 300);
 })();

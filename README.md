@@ -19,6 +19,14 @@ in the header switches it; the choice is remembered in the browser.
   without overflowing the browser's stack, measured in throwaway workers (doubling, then bisecting to about 10%). les evaluates on
   the browser's own stack and the amount differs a lot between browsers, so the score is for comparing browsers and devices; it is
   not a recursion limit for other programs. The `?` button next to it shows the script.
+- Links: `#ex=<name>` (e.g. `#ex=lcs-dp`) opens the page with that example selected and runs it. `#z=<data>` carries a whole
+  script (raw DEFLATE, base64url; `#u=<data>` is the same uncompressed, used when that is shorter or the browser cannot
+  compress), with `ex=<name>&` in front when the script needs that example's run settings (arguments, key input). The script is
+  in the URL fragment, so it is not sent to a server. Once loaded, the fragment is removed from the address bar.
+- The share button in the editor's title bar makes such a link. It works once a run of the current text has ended (exit, crash
+  or Stop) and until the text is edited. Its dialog has a description field (default `my-script.les`), **Copy link** (puts a
+  rich-text link labelled with the description on the clipboard, with the bare URL as the plain-text alternative) and
+  **Download** (saves the script as a file named after the description). Close it with ×, Esc or a click outside.
 - The terminal is [xterm.js](https://xtermjs.org/). Line editing (echo, Backspace, Ctrl+U, Ctrl+D) is done by the page.
 - Two buttons at the right end of the terminal's title bar help on a small screen. The first makes the
   terminal a fixed 80 columns wide and scrolls it sideways; the second shows the terminal full screen
