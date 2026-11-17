@@ -151,7 +151,10 @@ body.term-full { overflow: hidden; }
 
 footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
 footer a { color: var(--accent); }
-#probe { cursor: help; font-variant-numeric: tabular-nums; }
+#probe { font-variant-numeric: tabular-nums; }
+#probe-help-btn { font: inherit; line-height: 1; width: 1.5em; height: 1.5em; padding: 0; border-radius: 50%; border: 1px solid var(--line, #c5c9d6); background: transparent; color: var(--muted); cursor: pointer; }
+#probe-help { flex-basis: 100%; max-width: 70ch; }
+#probe-help pre { margin: 6px 0 0; padding: 8px 10px; background: rgba(0,0,0,.05); border-radius: 6px; overflow-x: auto; }
 code { font-family: var(--font-mono); font-size: 0.95em; }
 
 @media (max-width: 860px) {
@@ -238,7 +241,8 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
   <footer>
     <span data-i18n-html="footerFiles">Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code></span>
     <span data-i18n="footerBuild">cmd/les built unmodified for GOOS=js GOARCH=wasm</span>
-    <span id="probe" data-state="idle" hidden></span>
+    <span id="probe-wrap" hidden><span id="probe" data-state="idle"></span> <button id="probe-help-btn" type="button" aria-expanded="false" aria-controls="probe-help" aria-label="What is this?" data-i18n-aria-label="probeHelpLabel">?</button></span>
+    <div id="probe-help" hidden><span id="probe-help-text"></span><pre id="probe-script"></pre></div>
     <span><span data-i18n="licenses">Licenses:</span> <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
     __REPO_LINK__
   </footer>
@@ -256,11 +260,12 @@ const STRINGS = {
     statusLoading: "Loading les.wasm…",
     statusLoadingMB: "Loading les.wasm… {mb} MB",
     statusCompiling: "Compiling…",
-    probeRunning: "Measuring recursion depth…",
-    probeResult: "Recursion limit in this browser: about {n} levels",
-    probeAtLeast: "Recursion limit in this browser: over {n} levels",
-    probeBelow: "Recursion limit in this browser: under {n} levels",
-    probeTitle: "Measured at page load by running les in a throwaway worker: how deep a plain recursive function can go before the browser's stack overflows. Programs that recurse about this deep crash; the figure varies with the browser, the device and the program.",
+    probeRunning: "Measuring stack score…",
+    probeResult: "Stack score: {n}",
+    probeAtLeast: "Stack score: {n}+",
+    probeBelow: "Stack score: under {n}",
+    probeHelpLabel: "What is the stack score?",
+    probeHelp: "A score for how much stack this browser gives les, measured at page load. It is the largest n for which the script below ran without overflowing the stack (accurate to about 10%). It is not a recursion limit for your programs: other programs use more or less stack per level, so use it to compare browsers and devices, not to predict where yours will crash.",
     statusReady: "Ready",
     statusRunning: "Running",
     statusWaiting: "Waiting for input",
@@ -305,11 +310,12 @@ const STRINGS = {
     statusLoading: "les.wasm を読み込み中…",
     statusLoadingMB: "les.wasm を読み込み中… {mb} MB",
     statusCompiling: "コンパイル中…",
-    probeRunning: "再帰の深さを測定中…",
-    probeResult: "このブラウザの再帰の限界: 約 {n} 段",
-    probeAtLeast: "このブラウザの再帰の限界: {n} 段以上",
-    probeBelow: "このブラウザの再帰の限界: {n} 段未満",
-    probeTitle: "ページを開いたときに、使い捨てのワーカーで les を動かして測りました。単純な再帰関数が、ブラウザのスタックを使い切るまでに何段まで呼べるかです。この深さに近い再帰をするプログラムは異常終了します。値はブラウザ・端末・プログラムによって変わります。",
+    probeRunning: "スタックスコアを測定中…",
+    probeResult: "スタックスコア: {n}",
+    probeAtLeast: "スタックスコア: {n} 以上",
+    probeBelow: "スタックスコア: {n} 未満",
+    probeHelpLabel: "スタックスコアとは",
+    probeHelp: "このブラウザが les に与えるスタックの大きさを表す点数で、ページを開いたときに測っています。下のスクリプトが、スタックを溢れさせずに動いた最大の n です（誤差は 10% 程度）。あなたのプログラムの再帰の限界ではありません。ほかのプログラムは 1 段あたりのスタック消費が違うので、ブラウザや端末の比較に使うもので、自分のプログラムがどこで落ちるかの予想には使えません。",
     statusReady: "準備完了",
     statusRunning: "実行中",
     statusWaiting: "入力待ち",
@@ -883,12 +889,18 @@ setKeyMode(exampleRun(exampleSel.value).keys);
 // RangeError, and the limit differs a lot between browsers (iOS Safari's is far below Chrome's).
 // After load, run `f(n) = 1 + f(n-1)` in throwaway workers and search for the largest n that survives.
 const PROBE_START = 128, PROBE_MAX = 1 << 17, PROBE_TIMEOUT = 15000;
-const probeEl = $("probe");
+const probeEl = $("probe"), probeWrap = $("probe-wrap"), probeHelpBtn = $("probe-help-btn"), probeHelp = $("probe-help");
+const PROBE_SRC = (n) => `def f(n: Int) -> Int:\n    n == 0 ? 0 : 1 + f(n - 1)\nprint f(${n}), "\\n"\n`;
 let probe = { state: "idle", n: 0 };
+probeHelpBtn.addEventListener("click", () => {
+  probeHelp.hidden = !probeHelp.hidden;
+  probeHelpBtn.setAttribute("aria-expanded", String(!probeHelp.hidden));
+});
 function renderProbe() {
-  probeEl.hidden = probe.state === "idle";
+  probeWrap.hidden = probe.state === "idle";
   probeEl.dataset.state = probe.state;
-  probeEl.title = t("probeTitle");
+  $("probe-help-text").textContent = t("probeHelp");
+  $("probe-script").textContent = PROBE_SRC("n");
   const key = { running: "probeRunning", ok: "probeResult", atleast: "probeAtLeast", below: "probeBelow" }[probe.state];
   if (key) probeEl.textContent = t(key, { n: probe.n.toLocaleString(lang) });
 }
@@ -905,7 +917,7 @@ function probeOnce(depth) {
       else if (m.type === "error") done(false);
     };
     w.onerror = (ev) => { ev.preventDefault(); done(false); };
-    const src = `def f(n: Int) -> Int:\n    n == 0 ? 0 : 1 + f(n - 1)\nprint f(${depth}), "\\n"\n`;
+    const src = PROBE_SRC(depth);
     try {
       w.postMessage({ type: "run", module: wasmModule, files: { "/main.les": src }, argv: ["les", "/main.les"] });
     } catch (e) { done(false); }
