@@ -15,6 +15,9 @@ in the header switches it; the choice is remembered in the browser.
 - Standard input works by holding the callback of a `read` on fd 0 until the page sends input.
   The worker's event loop keeps running while the Go goroutine waits, so no `SharedArrayBuffer` is needed.
 - Every run gets a fresh Web Worker. Stop (Ctrl+C) simply terminates it.
+- After load, the footer shows how deep a plain recursive les function can go in this browser ("Recursion limit: about N levels"):
+  les evaluates on the browser's own stack, so deeper recursion crashes with a `RangeError`, and the limit differs a lot between
+  browsers. The figure is measured by running a small program in throwaway workers (doubling, then bisecting to about 10%).
 - The terminal is [xterm.js](https://xtermjs.org/). Line editing (echo, Backspace, Ctrl+U, Ctrl+D) is done by the page.
 - Two buttons at the right end of the terminal's title bar help on a small screen. The first makes the
   terminal a fixed 80 columns wide and scrolls it sideways; the second shows the terminal full screen

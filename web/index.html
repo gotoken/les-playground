@@ -151,6 +151,7 @@ body.term-full { overflow: hidden; }
 
 footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
 footer a { color: var(--accent); }
+#probe { cursor: help; font-variant-numeric: tabular-nums; }
 code { font-family: var(--font-mono); font-size: 0.95em; }
 
 @media (max-width: 860px) {
@@ -237,6 +238,7 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
   <footer>
     <span data-i18n-html="footerFiles">Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code></span>
     <span data-i18n="footerBuild">cmd/les built unmodified for GOOS=js GOARCH=wasm</span>
+    <span id="probe" data-state="idle" hidden></span>
     <span><span data-i18n="licenses">Licenses:</span> <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
     __REPO_LINK__
   </footer>
@@ -254,6 +256,11 @@ const STRINGS = {
     statusLoading: "Loading les.wasm…",
     statusLoadingMB: "Loading les.wasm… {mb} MB",
     statusCompiling: "Compiling…",
+    probeRunning: "Measuring recursion depth…",
+    probeResult: "Recursion limit in this browser: about {n} levels",
+    probeAtLeast: "Recursion limit in this browser: over {n} levels",
+    probeBelow: "Recursion limit in this browser: under {n} levels",
+    probeTitle: "Measured at page load by running les in a throwaway worker: how deep a plain recursive function can go before the browser's stack overflows. Programs that recurse about this deep crash; the figure varies with the browser, the device and the program.",
     statusReady: "Ready",
     statusRunning: "Running",
     statusWaiting: "Waiting for input",
@@ -298,6 +305,11 @@ const STRINGS = {
     statusLoading: "les.wasm を読み込み中…",
     statusLoadingMB: "les.wasm を読み込み中… {mb} MB",
     statusCompiling: "コンパイル中…",
+    probeRunning: "再帰の深さを測定中…",
+    probeResult: "このブラウザの再帰の限界: 約 {n} 段",
+    probeAtLeast: "このブラウザの再帰の限界: {n} 段以上",
+    probeBelow: "このブラウザの再帰の限界: {n} 段未満",
+    probeTitle: "ページを開いたときに、使い捨てのワーカーで les を動かして測りました。単純な再帰関数が、ブラウザのスタックを使い切るまでに何段まで呼べるかです。この深さに近い再帰をするプログラムは異常終了します。値はブラウザ・端末・プログラムによって変わります。",
     statusReady: "準備完了",
     statusRunning: "実行中",
     statusWaiting: "入力待ち",
@@ -839,6 +851,7 @@ langSel.addEventListener("change", () => {
   applyI18n();
   renderMenu();
   renderStatus();
+  renderProbe();
   const name = exampleSel.value;
   if (isPristine(name, editor.value) && editor.value !== exampleText(name)) {
     editor.value = exampleText(name);
@@ -865,6 +878,61 @@ if (draft && typeof draft.code === "string" && draft.code.trim() && !isPristine(
 }
 setKeyMode(exampleRun(exampleSel.value).keys);
 
+/* ---------- stack probe: how deep can les recurse in this browser? ---------- */
+// les evaluates on the browser's own stack, so a program that recurses too deeply crashes with a
+// RangeError, and the limit differs a lot between browsers (iOS Safari's is far below Chrome's).
+// After load, run `f(n) = 1 + f(n-1)` in throwaway workers and search for the largest n that survives.
+const PROBE_START = 128, PROBE_MAX = 1 << 17, PROBE_TIMEOUT = 15000;
+const probeEl = $("probe");
+let probe = { state: "idle", n: 0 };
+function renderProbe() {
+  probeEl.hidden = probe.state === "idle";
+  probeEl.dataset.state = probe.state;
+  probeEl.title = t("probeTitle");
+  const key = { running: "probeRunning", ok: "probeResult", atleast: "probeAtLeast", below: "probeBelow" }[probe.state];
+  if (key) probeEl.textContent = t(key, { n: probe.n.toLocaleString(lang) });
+}
+function probeOnce(depth) {
+  return new Promise((resolve) => {
+    const w = new Worker(`worker.js?v=${BUILD.les_sha}`);
+    let out = "", settled = false;
+    const done = (ok) => { if (settled) return; settled = true; clearTimeout(timer); w.terminate(); resolve(ok); };
+    const timer = setTimeout(() => done(false), PROBE_TIMEOUT);
+    w.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === "out" && m.fd === 1) out += new TextDecoder().decode(m.data);
+      else if (m.type === "exit") done(m.code === 0 && out.trim() === String(depth));
+      else if (m.type === "error") done(false);
+    };
+    w.onerror = (ev) => { ev.preventDefault(); done(false); };
+    const src = `def f(n: Int) -> Int:\n    n == 0 ? 0 : 1 + f(n - 1)\nprint f(${depth}), "\\n"\n`;
+    try {
+      w.postMessage({ type: "run", module: wasmModule, files: { "/main.les": src }, argv: ["les", "/main.les"] });
+    } catch (e) { done(false); }
+  });
+}
+// Doubling until a depth fails, then bisect until the bounds are within 10%.
+async function measureDepth() {
+  let lo = 0, hi = 0, d = PROBE_START;
+  while (d <= PROBE_MAX) {
+    if (await probeOnce(d)) { lo = d; d *= 2; } else { hi = d; break; }
+  }
+  if (!hi) return { state: "atleast", n: lo };
+  if (!lo) return { state: "below", n: hi };
+  while (hi - lo > lo * 0.1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (await probeOnce(mid)) lo = mid; else hi = mid;
+  }
+  const mag = 10 ** Math.max(0, String(lo).length - 2);  // two significant digits: the figure is only an estimate
+  return { state: "ok", n: Math.floor(lo / mag) * mag };
+}
+async function runProbe() {
+  probe = { state: "running", n: 0 };
+  renderProbe();
+  try { probe = await measureDepth(); } catch (e) { probe = { state: "idle", n: 0 }; }
+  renderProbe();
+}
+
 (async () => {
   const wasmReady = loadWasm();
   try {
@@ -887,6 +955,7 @@ setKeyMode(exampleRun(exampleSel.value).keys);
   setStatus("ready", "statusReady");
   setRunning(false);
   run(false);
+  setTimeout(runProbe, 300);
 })();
 </script>
 </body>
