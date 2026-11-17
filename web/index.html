@@ -993,7 +993,8 @@ async function loadFromLink() {
     return false;
   }
   if (name !== null && !hasExample(name)) {
-    out(t("linkUnknownExample", { name }) + "\n", "31");
+    // The name comes from the URL: no control characters into the terminal, and not too much of it
+    out(t("linkUnknownExample", { name: name.replace(/[\u0000-\u001f\u007f-\u009f]/g, "?").slice(0, 60) }) + "\n", "31");
     if (code === null) return false;
     name = null;
   }
