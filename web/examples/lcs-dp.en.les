@@ -52,13 +52,11 @@ def show(a: String, b: String):
     print "LCS length = ", common.Len(), "\n"
     print "LCS        = \"", common, "\"\n\n"
 
-# 1. Two similar sentences
-show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")
+# The demos are ordered by how deep the recursion gets (about the sum of the two lengths). The interpreter recurses
+# on the browser's own stack, so on a browser with a small stack (iOS Safari) the later, longer ones may crash
+# while the earlier ones still run.
 
-# 2. DNA sequences (a pair familiar from textbooks)
-show("ACCGGTCGAGTGCGCGGAAGCCGGCCGAA", "GTCGTTCGGAATGCCGTTGCTCTGTAAA")
-
-# 3. Print only the cells that actually get computed: the more alike the strings, the less of the table is computed
+# 1. Print only the cells that actually get computed: the more alike the strings, the less of the table is computed
 def count_cells(a: String, b: String):
     t = lcs_table(a, b, true)
     print "\"", a, "\" and \"", b, "\" (the table has ", (a.Len() + 1) * (b.Len() + 1), " cells)\n  computed cells: "
@@ -68,3 +66,9 @@ def count_cells(a: String, b: String):
 count_cells("lazy", "lazy")
 count_cells("lazy", "hazy")
 count_cells("abc", "xyz")
+
+# 2. DNA sequences (a pair familiar from textbooks)
+show("ACCGGTCGAGTGCGCGGAAGCCGGCCGAA", "GTCGTTCGGAATGCCGTTGCTCTGTAAA")
+
+# 3. Two similar sentences
+show("lazy evaluation computes a value only when needed", "lazy evaluation computes each value once, when first needed")
