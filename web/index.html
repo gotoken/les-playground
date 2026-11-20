@@ -173,7 +173,11 @@ footer a { color: var(--accent); }
   border-radius: 50%; border: 1px solid var(--line, #c5c9d6); background: transparent; color: var(--muted); cursor: pointer;
 }
 #probe-help { flex: 0 0 100%; min-width: 0; }
-#probe-help > div { max-width: 70ch; }
+#probe-help.animating { overflow: hidden; }
+#probe-help > div { max-width: 70ch; margin-inline: auto; }
+@media (max-width: 860px) {
+  #probe-help > div { margin-inline: 0; }
+}
 #probe-help pre { margin: 6px 0 0; padding: 8px 10px; background: rgba(0,0,0,.05); border-radius: 6px; overflow-x: auto; }
 code { font-family: var(--font-mono); font-size: 0.95em; }
 
@@ -1091,9 +1095,37 @@ const PROBE_START = 128, PROBE_MAX = 1 << 17, PROBE_TIMEOUT = 15000;
 const probeEl = $("probe"), probeWrap = $("probe-wrap"), probeHelpBtn = $("probe-help-btn"), probeHelp = $("probe-help");
 const PROBE_SRC = (n) => `def f(n: Int) -> Int:\n    n == 0 ? 0 : 1 + f(n - 1)\nprint f(${n}), "\\n"\n`;
 let probe = { state: "idle", n: 0 };
+let probeHelpAnimation;
 probeHelpBtn.addEventListener("click", () => {
-  probeHelp.hidden = !probeHelp.hidden;
-  probeHelpBtn.setAttribute("aria-expanded", String(!probeHelp.hidden));
+  const open = probeHelpBtn.getAttribute("aria-expanded") !== "true";
+  // Read the current visual state before cancelling an in-flight animation,
+  // so clicking again halfway through reverses it without a jump.
+  const fromHeight = probeHelp.hidden ? 0 : probeHelp.getBoundingClientRect().height;
+  const fromOpacity = probeHelp.hidden ? 0 : Number(getComputedStyle(probeHelp).opacity);
+  probeHelpAnimation?.cancel();
+  probeHelpAnimation = undefined;
+  probeHelpBtn.setAttribute("aria-expanded", String(open));
+  probeHelp.inert = !open;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !probeHelp.animate) {
+    probeHelp.hidden = !open;
+    probeHelp.classList.remove("animating");
+    return;
+  }
+  probeHelp.hidden = false;
+  probeHelp.classList.add("animating");
+  const toHeight = open ? probeHelp.scrollHeight : 0;
+  const animation = probeHelp.animate([
+    { height: `${fromHeight}px`, opacity: fromOpacity },
+    { height: `${toHeight}px`, opacity: open ? 1 : 0 },
+  ], { duration: 180, easing: "ease-in-out", fill: "both" });
+  probeHelpAnimation = animation;
+  animation.onfinish = () => {
+    if (probeHelpAnimation !== animation) return;
+    probeHelp.hidden = !open;
+    probeHelp.classList.remove("animating");
+    probeHelpAnimation = undefined;
+    animation.cancel();
+  };
 });
 function renderProbe() {
   probeWrap.hidden = probe.state === "idle";
