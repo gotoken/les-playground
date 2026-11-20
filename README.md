@@ -58,12 +58,37 @@ mode. `web/examples/2048.les` runs as `les main.les {seed} --raw` in key input m
 | Trigger | What it does |
 | --- | --- |
 | Push to `main` | Builds unak/les master and publishes it |
-| Hourly (at :23) | Compares with the published `version.json`; builds and publishes only if unak/les master or this repository has moved |
+| Same-repository PR opened, updated, reopened or closed (targeting `main`) | Reconciles production and all open PR previews |
+| Hourly (at :23) | Compares the published production version and preview manifest with current refs; builds only when they differ |
 | Manual (workflow_dispatch) | Builds the branch, tag or commit given as `les_ref` and publishes it |
 
 After the build, `scripts/smoke.mjs` runs the real `worker.js` and `les.wasm` under Node.
 If the playground's own checks fail (stdin, EOF, import, exit codes, the starter samples, the examples kept here), nothing is published.
 If one of unak/les's examples fails, the run only reports a warning and still publishes.
+
+### Pull request previews
+
+After the Pages workflow is deployed on `main`, every open PR targeting `main` from a branch
+in this repository has a preview at:
+
+```text
+https://gotoken.github.io/les-playground/pr-preview/pr-<number>/
+```
+
+The Pages workflow publishes production and all successful previews together, so scheduled
+updates do not erase open previews. Closing a PR (including merging it) removes its preview
+on the next successful deployment. Check the workflow run summary for published links.
+A failed PR smoke test excludes that preview without blocking production; the hourly run
+retries missing previews. Previews use the PR head, not a synthetic merge commit.
+On PR events the current published upstream les SHA is reused if available; normal main
+and scheduled deployments retain their existing upstream-update behavior.
+
+Only trusted same-repository branches are eligible: GitHub Pages serves them from the
+same origin as production. Do not enable fork previews without separate origin isolation.
+Build jobs have read-only permissions, no shared dependency caches, and do not persist
+checkout credentials; the deploy job publishes static artifacts without executing PR code.
+This workflow rebuilds production and each open preview on reconciliation, even previews
+whose code did not change.
 
 One-time setup: set Settings → Pages → Build and deployment → Source to **GitHub Actions**.
 Note that GitHub disables scheduled workflows in public repositories after 60 days without commits.
