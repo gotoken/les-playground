@@ -172,7 +172,8 @@ footer a { color: var(--accent); }
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   border-radius: 50%; border: 1px solid var(--line, #c5c9d6); background: transparent; color: var(--muted); cursor: pointer;
 }
-#probe-help { flex-basis: 100%; max-width: 70ch; }
+#probe-help { flex: 0 0 100%; min-width: 0; }
+#probe-help > div { max-width: 70ch; }
 #probe-help pre { margin: 6px 0 0; padding: 8px 10px; background: rgba(0,0,0,.05); border-radius: 6px; overflow-x: auto; }
 code { font-family: var(--font-mono); font-size: 0.95em; }
 
@@ -269,9 +270,9 @@ code { font-family: var(--font-mono); font-size: 0.95em; }
     <span data-i18n-html="footerFiles">Virtual files (read-only): <code>/main.les</code> (the editor) and the repository's examples such as <code>/mymath.les</code></span>
     <span data-i18n="footerBuild">cmd/les built unmodified for GOOS=js GOARCH=wasm</span>
     <span id="probe-wrap" hidden><span id="probe" data-state="idle"></span> <button id="probe-help-btn" type="button" aria-expanded="false" aria-controls="probe-help" aria-label="What is this?" data-i18n-aria-label="probeHelpLabel">?</button></span>
-    <div id="probe-help" hidden><span id="probe-help-text"></span><pre id="probe-script"></pre></div>
     <span><span data-i18n="licenses">Licenses:</span> <a href="LICENSE-les.txt">les</a> · <a href="LICENSE-go.txt">Go</a> · <a href="LICENSE-xterm.txt">xterm.js</a></span>
     __REPO_LINK__
+    <div id="probe-help" hidden><div><span id="probe-help-text"></span><pre id="probe-script"></pre></div></div>
   </footer>
 </div>
 
