@@ -167,8 +167,14 @@ jobs:
         run: |
           set -euo pipefail
           # Never execute PR code in this write-capable job. Only copy static output.
-          test -f staging/site-main/index.html
-          mv staging/site-main dist
+          # download-artifact extracts a single matching artifact directly into
+          # staging, but creates artifact-named subdirectories for multiple matches.
+          if [ -f staging/site-main/index.html ]; then
+            mv staging/site-main dist
+          else
+            test -f staging/index.html
+            mv staging dist
+          fi
           rm -rf dist/pr-preview
           mkdir -p dist/pr-preview
           jq -c '.[]' <<<"$PREVIEWS" | while IFS= read -r pr; do
