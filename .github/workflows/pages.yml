@@ -3,9 +3,9 @@ name: Pages
 on:
   push:
     branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, synchronize, closed]
+  workflow_run:
+    workflows: [Pages preview request]
+    types: [completed]
   schedule:
     # Hourly: reconcile the production commit, upstream les and all open previews.
     - cron: '23 * * * *'
@@ -27,7 +27,8 @@ jobs:
   check:
     # Only trusted, same-repository branches may be published on the production origin.
     # Manual deployments must run from main, not from a PR's modified workflow.
-    if: ${{ (github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository) && github.ref == 'refs/heads/main' }}
+    # A PR workflow is only a signal; never consume its artifacts or checkout its ref.
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -67,14 +68,14 @@ jobs:
             published=$(curl -fsSL "${BASE_URL%/}/pr-preview/manifest.json?t=$(date +%s)" || echo 'null')
           fi
           # A PR event should not undo a manually selected upstream les revision.
-          if [ "$GITHUB_EVENT_NAME" = pull_request_target ]; then
+          if [ "$GITHUB_EVENT_NAME" = workflow_run ]; then
             deployed_ref=$(jq -r '.les_sha // empty' <<<"$deployed")
             if [[ "$deployed_ref" =~ ^[0-9a-f]{40}$ ]]; then LES_REF=$deployed_ref; fi
           fi
           sha=$(git ls-remote https://github.com/unak/les.git "refs/heads/${LES_REF}" | cut -f1)
           ref=${sha:-$LES_REF}
           build=true
-          if [ "$GITHUB_EVENT_NAME" = schedule ] &&
+          if { [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$GITHUB_EVENT_NAME" = workflow_run ]; } &&
              [ "$(jq -r '.les_sha // ""' <<<"$deployed")" = "$ref" ] &&
              [ "$(jq -r '.playground_sha // ""' <<<"$deployed")" = "$main_sha" ] &&
              [ "$(jq -cS . <<<"$published")" = "$(jq -cS . <<<"$previews")" ]; then
@@ -135,7 +136,7 @@ jobs:
       - name: Smoke test
         run: node --liftoff-only scripts/smoke.mjs --site dist --les les
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: site-${{ matrix.name }}
           path: dist
@@ -155,7 +156,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: site-*
           path: staging
