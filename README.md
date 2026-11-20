@@ -68,6 +68,12 @@ If one of unak/les's examples fails, the run only reports a warning and still pu
 
 ### Pull request previews
 
+The read-only `Pages preview request` workflow listens for same-repository `pull_request`
+events without checking out code or uploading artifacts. Its successful completion triggers
+`Pages` via `workflow_run` on the default branch. Pages independently queries the live PR list;
+no data or artifacts from the notification workflow are used for publication. If a PR event
+cannot run (for example, a merge conflict), the hourly reconciliation remains the fallback.
+
 After the Pages workflow is deployed on `main`, every open PR targeting `main` from a branch
 in this repository has a preview at:
 
