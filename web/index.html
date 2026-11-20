@@ -162,10 +162,16 @@ body.term-full { overflow: hidden; }
 .stdin.keys .keypad { display: flex; }
 .stdin.keys #stdin-input, .stdin.keys #stdin-send { display: none; }
 
-footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+footer { font-size: 0.78rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 footer a { color: var(--accent); }
 #probe { font-variant-numeric: tabular-nums; }
-#probe-help-btn { font: inherit; line-height: 1; width: 1.5em; height: 1.5em; padding: 0; border-radius: 50%; border: 1px solid var(--line, #c5c9d6); background: transparent; color: var(--muted); cursor: pointer; }
+/* Keep the help button with its score without increasing the footer's line height. */
+#probe-wrap:not([hidden]) { display: inline-flex; align-items: center; gap: 0.35em; max-width: 100%; }
+#probe-help-btn {
+  font: inherit; line-height: 1; min-height: 0; width: 1.25em; height: 1.25em; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  border-radius: 50%; border: 1px solid var(--line, #c5c9d6); background: transparent; color: var(--muted); cursor: pointer;
+}
 #probe-help { flex-basis: 100%; max-width: 70ch; }
 #probe-help pre { margin: 6px 0 0; padding: 8px 10px; background: rgba(0,0,0,.05); border-radius: 6px; overflow-x: auto; }
 code { font-family: var(--font-mono); font-size: 0.95em; }
