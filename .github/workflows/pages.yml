@@ -3,9 +3,11 @@ name: Pages
 on:
   push:
     branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, closed]
   schedule:
-    # Hourly. The check job skips the build when the deployed site already has
-    # the current unak/les master and the current commit of this repository.
+    # Hourly: reconcile the production commit, upstream les and all open previews.
     - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
@@ -16,8 +18,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -25,10 +25,19 @@ concurrency:
 
 jobs:
   check:
+    # Only trusted, same-repository branches may be published on the production origin.
+    # Manual deployments must run from main, not from a PR's modified workflow.
+    if: ${{ (github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository) && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      pages: read
     outputs:
       build: ${{ steps.decide.outputs.build }}
       les_ref: ${{ steps.decide.outputs.les_ref }}
+      matrix: ${{ steps.decide.outputs.matrix }}
+      previews: ${{ steps.decide.outputs.previews }}
     steps:
       - name: Look up the Pages URL
         id: pages
@@ -38,31 +47,61 @@ jobs:
       - name: Decide whether to build
         id: decide
         env:
+          GH_TOKEN: ${{ github.token }}
           LES_REF: ${{ inputs.les_ref || 'master' }}
           BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
           set -euo pipefail
+          # Query live state, not merely the triggering PR: GitHub concurrency can
+          # coalesce pending events and Pages replaces the entire deployment.
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          previews=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&base=main&per_page=100" |
+            jq -cs --arg repo "$GITHUB_REPOSITORY" 'add | map(select(.head.repo.full_name == $repo) | {number, sha: .head.sha}) | sort_by(.number)')
+          matrix=$(jq -cn --arg main "$main_sha" --argjson prs "$previews" '
+            {include: ([{name:"main", sha:$main, preview:false}] +
+              ($prs | map({name:("pr-"+(.number|tostring)), sha, preview:true})))}')
+          deployed='{}'
+          published='null'
+          if [ -n "$BASE_URL" ]; then
+            deployed=$(curl -fsSL "${BASE_URL%/}/version.json?t=$(date +%s)" || echo '{}')
+            published=$(curl -fsSL "${BASE_URL%/}/pr-preview/manifest.json?t=$(date +%s)" || echo 'null')
+          fi
+          # A PR event should not undo a manually selected upstream les revision.
+          if [ "$GITHUB_EVENT_NAME" = pull_request_target ]; then
+            deployed_ref=$(jq -r '.les_sha // empty' <<<"$deployed")
+            if [[ "$deployed_ref" =~ ^[0-9a-f]{40}$ ]]; then LES_REF=$deployed_ref; fi
+          fi
           sha=$(git ls-remote https://github.com/unak/les.git "refs/heads/${LES_REF}" | cut -f1)
-          # Not a branch name: hand the tag or commit to actions/checkout as is.
           ref=${sha:-$LES_REF}
           build=true
-          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ -n "$BASE_URL" ]; then
-            deployed=$(curl -fsSL "${BASE_URL%/}/version.json?t=$(date +%s)" || echo '{}')
-            if [ "$(jq -r '.les_sha // ""' <<<"$deployed")" = "$sha" ] &&
-               [ "$(jq -r '.playground_sha // ""' <<<"$deployed")" = "$GITHUB_SHA" ]; then
-              build=false
-              echo "Already deployed: unak/les ${sha:0:7}, ${GITHUB_REPOSITORY} ${GITHUB_SHA:0:7}"
-            fi
+          if [ "$GITHUB_EVENT_NAME" = schedule ] &&
+             [ "$(jq -r '.les_sha // ""' <<<"$deployed")" = "$ref" ] &&
+             [ "$(jq -r '.playground_sha // ""' <<<"$deployed")" = "$main_sha" ] &&
+             [ "$(jq -cS . <<<"$published")" = "$(jq -cS . <<<"$previews")" ]; then
+            build=false
+            echo "Already deployed: production and all previews are current"
           fi
-          echo "build=${build}" >> "$GITHUB_OUTPUT"
-          echo "les_ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "les_ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "previews=$previews" >> "$GITHUB_OUTPUT"
 
   build:
     needs: check
     if: needs.check.outputs.build == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.check.outputs.matrix) }}
+    # A failed preview must not prevent publication of a valid production build.
+    continue-on-error: ${{ matrix.preview }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
 
       - name: Check out unak/les
         uses: actions/checkout@v7
@@ -70,39 +109,93 @@ jobs:
           repository: unak/les
           ref: ${{ needs.check.outputs.les_ref }}
           path: les
-          fetch-depth: 0  # the version is the commit count, as in unak/les releases
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-go@v7
         with:
           go-version: stable
-          cache: false  # unak/les has no dependencies
+          cache: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
 
       - run: npm ci
 
       - name: Build site
-        run: scripts/build.sh les dist
+        run: |
+          # GitHub's event SHA is not the checked-out PR SHA.
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          scripts/build.sh les dist
         env:
           PLAYGROUND_REPO: ${{ github.repository }}
 
       - name: Smoke test
         run: node --liftoff-only scripts/smoke.mjs --site dist --les les
 
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-artifact@v4
         with:
+          name: site-${{ matrix.name }}
           path: dist
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
 
   deploy:
-    needs: build
+    needs: [check, build]
+    if: ${{ !cancelled() && needs.check.outputs.build == 'true' && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: site-*
+          path: staging
+
+      - name: Assemble production and previews
+        env:
+          PREVIEWS: ${{ needs.check.outputs.previews }}
+        run: |
+          set -euo pipefail
+          # Never execute PR code in this write-capable job. Only copy static output.
+          test -f staging/site-main/index.html
+          mv staging/site-main dist
+          rm -rf dist/pr-preview
+          mkdir -p dist/pr-preview
+          jq -c '.[]' <<<"$PREVIEWS" | while IFS= read -r pr; do
+            n=$(jq -r .number <<<"$pr")
+            sha=$(jq -r .sha <<<"$pr")
+            src="staging/site-pr-$n"
+            if [ -f "$src/index.html" ] && [ -f "$src/version.json" ] &&
+               [ "$(jq -r '.playground_sha // ""' "$src/version.json")" = "$sha" ]; then
+              mv "$src" "dist/pr-preview/pr-$n"
+              jq -cn --argjson number "$n" --arg sha "$sha" '{number:$number,sha:$sha}'
+            else
+              echo "::warning::Preview #$n not published (build missing or failed)" >&2
+            fi
+          done | jq -s 'sort_by(.number)' > dist/pr-preview/manifest.json
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: List preview URLs
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          {
+            echo '### Published PR previews'
+            jq -r --arg base "${PAGES_URL%/}" '.[] | "- [PR #\(.number)](\($base)/pr-preview/pr-\(.number)/) — \(.sha[0:7])"' dist/pr-preview/manifest.json
+          } >> "$GITHUB_STEP_SUMMARY"
