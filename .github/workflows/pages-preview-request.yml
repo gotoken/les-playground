@@ -1,0 +1,17 @@
+name: Pages preview request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, closed]
+
+permissions: {}
+
+jobs:
+  notify:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      # Do not check out PR code or produce artifacts. Pages independently
+      # queries the live list of eligible PRs from its main-branch workflow.
+      - run: echo "Request Pages preview reconciliation"
